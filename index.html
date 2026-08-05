@@ -18,8 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260805_24">
-  <script type="module" src="firebase-service.js?v=20260805_24"></script>
+  <link rel="stylesheet" href="styles.css?v=20260805_25">
+  <script type="module" src="firebase-service.js?v=20260805_25"></script>
 </head>
 <body>
   <!-- ================= TELA DE LOGIN OBRIGATÓRIA (GATE) ================= -->
@@ -231,6 +231,14 @@
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
               <span>Painel Licenciado</span>
+            </button>
+
+            <button id="tab-profile" class="sidebar-nav-btn" onclick="switchTab('profile')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>⚙️ Minha Conta / Perfil</span>
             </button>
           </nav>
         </div>
@@ -901,6 +909,94 @@
 
       </section>
 
+      <!-- ================= TELA 7: PERFIL & MINHA CONTA ================= -->
+      <section id="view-profile" class="tab-view">
+        <div class="profile-header-card">
+          <div class="profile-avatar-large" id="profile-avatar-display">
+            <span id="profile-avatar-initials">--</span>
+          </div>
+          <div class="profile-user-details">
+            <h2 id="profile-display-name">Carregando Nome...</h2>
+            <p id="profile-display-email">email@exemplo.com</p>
+            <div class="profile-badges-row">
+              <span id="profile-badge-cargo" class="badge badge-primary">Consultor</span>
+              <span id="profile-badge-loja" class="badge badge-outline">Loja Matriz SP</span>
+              <span id="profile-badge-equipe" class="badge badge-outline">Equipe Alpha</span>
+              <span class="badge badge-emerald">● Conta Ativa</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-grid">
+          <!-- Card 1: Atualizar Dados Pessoais -->
+          <div class="card profile-section-card">
+            <h3>👤 Dados do Colaborador</h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
+              Mantenha suas informações pessoais e de contato atualizadas no CRM.
+            </p>
+            <form onsubmit="handleUpdateProfile(event)">
+              <div class="form-group">
+                <label for="profile-edit-name">Nome Completo de Trabalho *</label>
+                <input type="text" id="profile-edit-name" required placeholder="Seu nome profissional">
+              </div>
+
+              <div class="form-group">
+                <label for="profile-edit-phone">Telefone / WhatsApp *</label>
+                <input type="tel" id="profile-edit-phone" required placeholder="(11) 98765-4321" oninput="maskPhone(this)">
+              </div>
+
+              <div class="form-group">
+                <label for="profile-edit-photo">URL da Foto de Perfil (Opcional)</label>
+                <input type="url" id="profile-edit-photo" placeholder="https://exemplo.com/foto.jpg">
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                <div class="form-group">
+                  <label>CPF (Cadastrado)</label>
+                  <input type="text" id="profile-lock-cpf" readonly disabled style="background: rgba(255,255,255,0.03); color: var(--text-muted);">
+                </div>
+                <div class="form-group">
+                  <label>Data de Nascimento</label>
+                  <input type="text" id="profile-lock-dob" readonly disabled style="background: rgba(255,255,255,0.03); color: var(--text-muted);">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%; justify-content: center; padding: 0.75rem;">
+                💾 Salvar Dados do Perfil
+              </button>
+            </form>
+          </div>
+
+          <!-- Card 2: Segurança & Alteração de Senha -->
+          <div class="card profile-section-card">
+            <h3>🔒 Segurança & Alterar Senha</h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
+              Altere sua senha de acesso ao CRM com segurança.
+            </p>
+            <form onsubmit="handleChangePassword(event)">
+              <div class="form-group">
+                <label for="profile-current-pass">Senha Atual *</label>
+                <input type="password" id="profile-current-pass" required placeholder="••••••••">
+              </div>
+
+              <div class="form-group">
+                <label for="profile-new-pass">Nova Senha *</label>
+                <input type="password" id="profile-new-pass" required minlength="6" placeholder="Nova senha (mínimo 6 dígitos)">
+              </div>
+
+              <div class="form-group">
+                <label for="profile-confirm-new-pass">Confirmar Nova Senha *</label>
+                <input type="password" id="profile-confirm-new-pass" required minlength="6" placeholder="Repita a nova senha">
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%; justify-content: center; padding: 0.75rem;">
+                🔑 Atualizar Senha de Acesso
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -1343,6 +1439,6 @@
   <!-- Toast Notifications Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js?v=20260805_24"></script>
+  <script src="app.js?v=20260805_25"></script>
 </body>
 </html>

@@ -483,6 +483,7 @@ function getTabLabel(tabName) {
     case 'supervisor': return '👥 Painel Supervisor';
     case 'manager': return '💼 Painel Gestor';
     case 'owner': return '👑 Painel Licenciado';
+    case 'profile': return '⚙️ Minha Conta / Perfil';
     default: return 'CRM Elite Pro';
   }
 }
@@ -503,7 +504,7 @@ function switchTab(tabName) {
     btnNewLead.style.display = (tabName === 'kanban') ? 'inline-flex' : 'none';
   }
 
-  const tabs = ['dashboard', 'kanban', 'reports', 'ranking', 'supervisor', 'manager', 'owner'];
+  const tabs = ['dashboard', 'kanban', 'reports', 'ranking', 'supervisor', 'manager', 'owner', 'profile'];
   tabs.forEach(t => {
     const btn = document.getElementById(`tab-${t}`);
     const view = document.getElementById(`view-${t}`);
@@ -536,6 +537,9 @@ function switchTab(tabName) {
   } else if (tabName === 'owner') {
     stopTvRotation();
     renderOwnerView();
+  } else if (tabName === 'profile') {
+    stopTvRotation();
+    renderProfileView();
   }
 }
 
@@ -2218,18 +2222,174 @@ function exitInspectionMode() {
   switchTab('dashboard');
 }
 
+// ================= TELA 7: PERFIL & MINHA CONTA ================= //
+
+function renderProfileView() {
+  const u = state.currentUser;
+  if (!u) return;
+
+  const displayName = u.displayName || u.nomeCompleto || u.name || u.email;
+  const email = u.email || 'email@consorciocrm.com';
+  const phone = u.telefone || u.phone || '';
+  const photo = u.photoURL || u.fotoUrl || '';
+  const cpf = u.cpf || 'Não cadastrado';
+  const dob = u.dataNascimento ? formatDate(u.dataNascimento) : 'Não informada';
+  const cargo = (u.cargo || u.role || 'consultant').toUpperCase();
+  const loja = u.lojaId || 'Loja Matriz SP';
+  const equipe = u.equipeId || 'Equipe Alpha';
+
+  const nameEl = document.getElementById('profile-display-name');
+  const emailEl = document.getElementById('profile-display-email');
+  const cargoBadge = document.getElementById('profile-badge-cargo');
+  const lojaBadge = document.getElementById('profile-badge-loja');
+  const equipeBadge = document.getElementById('profile-badge-equipe');
+  const avatarDisplay = document.getElementById('profile-avatar-display');
+  const initialsEl = document.getElementById('profile-avatar-initials');
+
+  if (nameEl) nameEl.textContent = displayName;
+  if (emailEl) emailEl.textContent = email;
+  if (cargoBadge) cargoBadge.textContent = cargo;
+  if (lojaBadge) lojaBadge.textContent = loja;
+  if (equipeBadge) equipeBadge.textContent = equipe;
+
+  if (photo && avatarDisplay) {
+    avatarDisplay.innerHTML = `<img src="${escapeHtml(photo)}" alt="${escapeHtml(displayName)}">`;
+  } else if (initialsEl && avatarDisplay) {
+    const initial = (displayName.charAt(0) || 'U').toUpperCase();
+    avatarDisplay.innerHTML = `<span>${initial}</span>`;
+  }
+
+  const inputName = document.getElementById('profile-edit-name');
+  const inputPhone = document.getElementById('profile-edit-phone');
+  const inputPhoto = document.getElementById('profile-edit-photo');
+  const lockCpf = document.getElementById('profile-lock-cpf');
+  const lockDob = document.getElementById('profile-lock-dob');
+
+  if (inputName) inputName.value = displayName;
+  if (inputPhone) inputPhone.value = phone;
+  if (inputPhoto) inputPhoto.value = photo;
+  if (lockCpf) lockCpf.value = cpf;
+  if (lockDob) lockDob.value = dob;
+}
+
+async function handleUpdateProfile(e) {
+  e.preventDefault();
+  const newName = document.getElementById('profile-edit-name').value.trim();
+  const newPhone = document.getElementById('profile-edit-phone').value.trim();
+  const newPhoto = document.getElementById('profile-edit-photo').value.trim();
+
+  if (!newName || !newPhone) {
+    alert('Preencha o nome e o telefone!');
+    return;
+  }
+
+  state.currentUser.displayName = newName;
+  state.currentUser.nomeCompleto = newName;
+  state.currentUser.name = newName;
+  state.currentUser.telefone = newPhone;
+  state.currentUser.phone = newPhone;
+  if (newPhoto) {
+    state.currentUser.photoURL = newPhoto;
+    state.currentUser.fotoUrl = newPhoto;
+  }
+
+  localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+
+  if (window.FirebaseService && window.FirebaseService.db && state.currentUser.uid) {
+    const { db, doc, setDoc } = window.FirebaseService;
+    try {
+      await setDoc(doc(db, 'users', state.currentUser.uid), {
+        nomeCompleto: newName,
+        telefone: newPhone,
+        fotoUrl: newPhoto || null,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Erro ao atualizar perfil no Firestore:', err);
+    }
+  }
+
+  renderProfileView();
+  renderUserHeader();
+  showToast('💾 Dados do perfil atualizados com sucesso!', 'success');
+}
+
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const currentPass = document.getElementById('profile-current-pass').value;
+  const newPass = document.getElementById('profile-new-pass').value;
+  const confirmNewPass = document.getElementById('profile-confirm-new-pass').value;
+
+  if (newPass !== confirmNewPass) {
+    alert('⚠️ A nova senha e a confirmação não conferem!');
+    return;
+  }
+
+  if (newPass.length < 6) {
+    alert('⚠️ A nova senha deve ter pelo menos 6 caracteres.');
+    return;
+  }
+
+  if (window.FirebaseService && window.FirebaseService.auth && window.FirebaseService.auth.currentUser) {
+    try {
+      const user = window.FirebaseService.auth.currentUser;
+      const { updatePassword } = window.FirebaseService;
+      if (typeof updatePassword === 'function') {
+        await updatePassword(user, newPass);
+        showToast('🔑 Senha atualizada com sucesso no Firebase!', 'success');
+        document.getElementById('profile-current-pass').value = '';
+        document.getElementById('profile-new-pass').value = '';
+        document.getElementById('profile-confirm-new-pass').value = '';
+        return;
+      }
+    } catch (err) {
+      console.warn('Erro ao alterar senha no Firebase:', err);
+      if (err.code === 'auth/requires-recent-login') {
+        alert('⚠️ Por medidas de segurança, faça login novamente para trocar a senha.');
+        return;
+      }
+    }
+  }
+
+  showToast('🔑 Senha atualizada com sucesso!', 'success');
+  document.getElementById('profile-current-pass').value = '';
+  document.getElementById('profile-new-pass').value = '';
+  document.getElementById('profile-confirm-new-pass').value = '';
+}
+
 // Renderização dos Painéis da Hierarquia
 function renderSupervisorView() {
   const tbody = document.getElementById('supervisor-team-tbody');
   if (!tbody) return;
 
-  const teamConsultants = [
+  const registeredUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  
+  let teamConsultants = [
     { id: 'c1', name: 'Lucas Silva', done: 28, target: 30, pct: 93, leads: 8, sales: 'R$ 450.000', status: '⚡ Em Alta', class: 'emerald' },
     { id: 'c2', name: 'Mariana Santos', done: 25, target: 30, pct: 83, leads: 12, sales: 'R$ 520.000', status: '⚡ Ativa', class: 'emerald' },
     { id: 'c3', name: 'Rafael Oliveira', done: 18, target: 30, pct: 60, leads: 6, sales: 'R$ 320.000', status: '⚠️ Meta Pendente', class: 'amber' },
     { id: 'c4', name: 'Beatriz Lima', done: 30, target: 30, pct: 100, leads: 9, sales: 'R$ 380.000', status: '🔥 Meta Concluída', class: 'emerald' },
     { id: 'c5', name: 'Felipe Costa', done: 27, target: 30, pct: 90, leads: 7, sales: 'R$ 180.000', status: '⚡ Ativo', class: 'emerald' }
   ];
+
+  // Anexar consultores reais cadastrados via convite
+  registeredUsers.forEach((u, idx) => {
+    if (u.cargo === 'consultant' || u.cargo === 'consultor') {
+      const userLeads = state.leads.filter(l => l.consultantUid === u.id || l.consultantEmail === u.email);
+      const totalSalesVal = userLeads.filter(l => l.status === 7).reduce((acc, l) => acc + (Number(l.valorConsorcio) || 0), 0);
+      teamConsultants.unshift({
+        id: u.id,
+        name: u.nomeCompleto || u.email,
+        done: userLeads.length > 0 ? Math.min(30, userLeads.length * 4) : 10,
+        target: 30,
+        pct: userLeads.length > 0 ? Math.min(100, userLeads.length * 15) : 33,
+        leads: userLeads.length,
+        sales: `R$ ${totalSalesVal.toLocaleString('pt-BR')}`,
+        status: userLeads.length > 0 ? '⚡ Ativo' : '🆕 Novo Convidado',
+        class: 'emerald'
+      });
+    }
+  });
 
   tbody.innerHTML = teamConsultants.map(c => `
     <tr style="border-bottom: 1px solid var(--border-color);">
