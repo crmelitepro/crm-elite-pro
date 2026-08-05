@@ -1,7 +1,17 @@
 /**
  * GOOGLE FIREBASE CONFIGURATION & INITIALIZATION (RESILIENT LOADER)
- * CRM Elite Pro
+ * CRM Elite Pro - Ademicon
  */
+
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBcgFutHppFd054YQRp3JBGzDGnQazkFuk",
+  authDomain: "crm-elite-pro.firebaseapp.com",
+  projectId: "crm-elite-pro",
+  storageBucket: "crm-elite-pro.firebasestorage.app",
+  messagingSenderId: "708118778115",
+  appId: "1:708118778115:web:d648e93c79dc68e15b1936",
+  measurementId: "G-R9ZKESBCPQ"
+};
 
 window.FirebaseService = {
   app: null,
@@ -30,15 +40,18 @@ window.FirebaseService = {
 };
 
 async function initFirebaseSDK() {
+  let activeConfig = DEFAULT_FIREBASE_CONFIG;
+  
   const customConfigStr = localStorage.getItem('crm_consorcio_firebase_config');
-  if (!customConfigStr) {
-    console.log('ℹ️ Firebase não configurado. Modo local ativo com 100% de funcionalidade.');
-    return;
+  if (customConfigStr) {
+    try {
+      activeConfig = JSON.parse(customConfigStr);
+    } catch (e) {
+      console.warn('Erro ao ler chaves personalizadas. Usando padrão.');
+    }
   }
 
   try {
-    const activeConfig = JSON.parse(customConfigStr);
-
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
     const { 
       getAuth, 
