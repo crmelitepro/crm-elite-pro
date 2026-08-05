@@ -155,8 +155,14 @@ async function handlePortalLogin(e) {
   alert('Usuário ou senha incorretos!\n\n💡 Dica de acesso padrão:\nUsuário: admin\nSenha: admin');
 }
 
+function getUserStorageKey(baseKey) {
+  const user = state.currentUser;
+  const uid = user ? (user.uid || user.email) : 'admin_demo';
+  return `${baseKey}_${uid}`;
+}
+
 function loadGoalConfigs() {
-  const data = localStorage.getItem(STORAGE_KEYS.GOAL_CONFIGS);
+  const data = localStorage.getItem(getUserStorageKey(STORAGE_KEYS.GOAL_CONFIGS));
   if (data) {
     state.goalConfigs = JSON.parse(data);
   } else {
@@ -186,11 +192,15 @@ function updateCurrentDateDisplay() {
 // Check if midnight passed and reset goals automatically
 function checkAndResetDailyGoals() {
   const todayStr = getTodayDateString();
-  const lastReset = localStorage.getItem(STORAGE_KEYS.LAST_DATE);
+  const lastResetKey = getUserStorageKey(STORAGE_KEYS.LAST_DATE);
+  const goalsKey = getUserStorageKey(STORAGE_KEYS.GOALS);
+  const lastReset = localStorage.getItem(lastResetKey);
 
-  const savedGoals = localStorage.getItem(STORAGE_KEYS.GOALS);
+  const savedGoals = localStorage.getItem(goalsKey);
   if (savedGoals) {
     state.goals = JSON.parse(savedGoals);
+  } else {
+    state.goals = {};
   }
 
   // Garantir que todos os IDs de metas configuradas existam no estado de metas
@@ -205,8 +215,8 @@ function checkAndResetDailyGoals() {
     state.goalConfigs.forEach(cfg => {
       state.goals[cfg.id] = 0;
     });
-    localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(state.goals));
-    localStorage.setItem(STORAGE_KEYS.LAST_DATE, todayStr);
+    localStorage.setItem(goalsKey, JSON.stringify(state.goals));
+    localStorage.setItem(lastResetKey, todayStr);
     
     if (lastReset) {
       showToast('🌅 Novo dia iniciado! Seus contadores de metas foram zerados.', 'info');
@@ -225,7 +235,7 @@ function manualResetGoals() {
 }
 
 function saveGoalConfigs() {
-  localStorage.setItem(STORAGE_KEYS.GOAL_CONFIGS, JSON.stringify(state.goalConfigs));
+  localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOAL_CONFIGS), JSON.stringify(state.goalConfigs));
   renderGoals();
   renderOrigemDropdowns();
 
@@ -241,7 +251,7 @@ function saveGoalConfigs() {
 }
 
 function saveGoals() {
-  localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(state.goals));
+  localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOALS), JSON.stringify(state.goals));
   renderGoals();
 
   if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
@@ -256,7 +266,7 @@ function saveGoals() {
 }
 
 function loadLeads() {
-  const data = localStorage.getItem(STORAGE_KEYS.LEADS);
+  const data = localStorage.getItem(getUserStorageKey(STORAGE_KEYS.LEADS));
   if (data) {
     state.leads = JSON.parse(data);
   } else {
@@ -266,7 +276,7 @@ function loadLeads() {
 }
 
 function saveLeads() {
-  localStorage.setItem(STORAGE_KEYS.LEADS, JSON.stringify(state.leads));
+  localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
   renderFollowups();
   renderKanban();
   renderOrigemDropdowns();
@@ -1553,6 +1563,13 @@ async function handleLogout() {
         await signOut(auth);
       } catch (err) {}
     }
+
+    state.leads = [];
+    state.goals = {};
+    state.goalConfigs = [...DEFAULT_GOAL_CONFIGS];
+    loadLeads();
+    loadGoalConfigs();
+    checkAndResetDailyGoals();
 
     checkAuthGate();
     showToast('Você saiu do sistema.', 'info');
