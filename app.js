@@ -98,15 +98,19 @@ function checkAuthGate() {
       try {
         state.currentUser = JSON.parse(savedUser);
       } catch (e) {
-        state.currentUser = { email: 'admin@consorciocrm.com', name: 'Administrador', uid: 'admin_master' };
+        state.currentUser = { email: 'admin@consorciocrm.com', name: 'Administrador', uid: 'admin_master', cargo: 'licenciado' };
       }
     }
+
+    // Sincronizar o cargo do usuário autenticado no estado local
+    state.currentRole = getUserRole();
 
     // Carregar dados exclusivos da conta logada
     loadGoalConfigs();
     checkAndResetDailyGoals();
     loadLeads();
     renderGoals();
+    updateRoleUI();
 
     if (gate) gate.style.display = 'none';
     if (app) app.style.display = 'flex';
@@ -1064,14 +1068,23 @@ function renderFollowups() {
 
         <div class="followup-actions">
           <button class="btn btn-outline small" onclick="openLeadModal('${lead.id}')">
-            <span>Editar Lead</span>
-          </button>
-          <button class="btn btn-warning small" onclick="openMandatoryModalForLead('${lead.id}')">
-            <span>Reagendar</span>
-          </button>
-          <button class="btn btn-whatsapp small" onclick="openWhatsApp('${lead.telefone}', '${lead.nome}')">
-            <span>Chamar WhatsApp</span>
-          </button>
+          <div class="followup-info">
+            <strong class="followup-name">${escapeHtml(lead.nome)}</strong>
+            <span class="followup-phone">${escapeHtml(lead.telefone)}</span>
+          </div>
+          <span class="badge ${isOverdue ? 'badge-rose' : 'badge-emerald'}">
+            ${isOverdue ? `Atrasado desde ${dateFormatted}` : `Hoje - ${dateFormatted}`}
+          </span>
+        </div>
+        <div class="followup-body">
+          <p><strong>Ação Pendente:</strong> ${escapeHtml(lead.acaoPendente || 'Entrar em contato com o lead')}</p>
+          ${lead.notas ? `<p class="text-muted" style="font-size: 0.8rem;">${escapeHtml(lead.notas)}</p>` : ''}
+        </div>
+        <div class="followup-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem;">
+          <a href="https://wa.me/55${lead.telefone.replace(/\D/g, '')}" target="_blank" class="btn btn-outline small" style="background: rgba(37,211,102,0.1); color: #25D366; border-color: rgba(37,211,102,0.3);">
+            💬 WhatsApp
+          </a>
+          <button class="btn btn-primary small" onclick="openEditModal('${lead.id}')">✏️ Editar Lead</button>
         </div>
       </div>
     `;
@@ -1087,8 +1100,10 @@ function renderKanban() {
   const searchVal = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
   const origemFilter = document.getElementById('filter-origem')?.value || 'todos';
 
+  const visibleLeads = getVisibleLeads();
+
   // Filter leads based on search & origem
-  const filteredLeads = state.leads.filter(lead => {
+  const filteredLeads = visibleLeads.filter(lead => {
     const matchesSearch = !searchVal || 
       lead.nome.toLowerCase().includes(searchVal) ||
       lead.telefone.toLowerCase().includes(searchVal) ||
@@ -2074,11 +2089,50 @@ function syncGoalsFromFirestore(userId) {
 
 // ================= HIERARCHY & DRILL-DOWN LOGIC ================= //
 
+function getUserRole() {
+  if (!state.currentUser) return 'consultant';
+  const email = (state.currentUser.email || '').toLowerCase();
+  const uid = state.currentUser.uid || '';
+  const cargo = (state.currentUser.cargo || state.currentUser.role || '').toLowerCase();
+
+  if (uid === 'admin_master' || email === 'admin@consorciocrm.com' || cargo === 'admin' || cargo === 'licenciado' || cargo === 'owner') {
+    return 'owner';
+  }
+  if (cargo === 'gestor' || cargo === 'manager') return 'manager';
+  if (cargo === 'supervisor') return 'supervisor';
+  return 'consultant';
+}
+
+function getVisibleLeads() {
+  const role = state.currentRole;
+  const u = state.currentUser;
+  if (!u) return state.leads;
+
+  const uid = u.uid || u.email;
+
+  if (role === 'consultant') {
+    return state.leads.filter(l => (l.consultantUid === uid || l.consultantEmail === u.email || !l.consultantUid));
+  } else if (role === 'supervisor') {
+    const userTeam = u.equipeId || u.teamName || 'eq-alpha';
+    return state.leads.filter(l => (l.equipeId === userTeam || l.teamName === userTeam || l.consultantUid === uid));
+  } else if (role === 'manager') {
+    const userStore = u.lojaId || 'loja-matriz';
+    return state.leads.filter(l => (l.lojaId === userStore || l.consultantUid === uid));
+  }
+  return state.leads;
+}
+
 function changeRole(role) {
+  const realRole = getUserRole();
+  if (realRole !== 'owner') {
+    alert('⛔ Apenas Licenciados (Donos) possuem permissão para alternar a visão da hierarquia.');
+    updateRoleUI();
+    return;
+  }
+
   state.currentRole = role;
   updateRoleUI();
 
-  // Abrir automaticamente a aba principal do perfil selecionado
   if (role === 'supervisor') {
     switchTab('supervisor');
   } else if (role === 'manager') {
@@ -2103,7 +2157,27 @@ function getRoleLabel(role) {
 }
 
 function updateRoleUI() {
+  const realRole = getUserRole();
+  const isOwnerOrMaster = (realRole === 'owner');
+
+  // Se não for Licenciado/Admin Master, trava a role na role real cadastrada
+  if (!isOwnerOrMaster) {
+    state.currentRole = realRole;
+  }
+
   const role = state.currentRole;
+  const roleSelectorSection = document.getElementById('sidebar-role-section');
+  const roleSelect = document.getElementById('role-selector');
+
+  if (roleSelect) {
+    roleSelect.value = role;
+  }
+
+  if (roleSelectorSection) {
+    // Exibir o seletor apenas para o Dono / Licenciado
+    roleSelectorSection.style.display = isOwnerOrMaster ? 'block' : 'none';
+  }
+
   const tabSupervisor = document.getElementById('tab-supervisor');
   const tabManager = document.getElementById('tab-manager');
   const tabOwner = document.getElementById('tab-owner');
@@ -2111,6 +2185,12 @@ function updateRoleUI() {
   if (tabSupervisor) tabSupervisor.style.display = (role === 'supervisor' || role === 'manager' || role === 'owner') ? 'inline-flex' : 'none';
   if (tabManager) tabManager.style.display = (role === 'manager' || role === 'owner') ? 'inline-flex' : 'none';
   if (tabOwner) tabOwner.style.display = (role === 'owner') ? 'inline-flex' : 'none';
+
+  // Ocultar botão de gerar convite para Consultor
+  const btnInvite = document.getElementById('btn-sidebar-generate-invite');
+  if (btnInvite) {
+    btnInvite.style.display = (role === 'consultant') ? 'none' : 'flex';
+  }
 
   updateRankingPermissionsUI();
 }
