@@ -117,35 +117,82 @@ function checkAuthGate() {
   }
 }
 
-function quickFillAdminCredentials() {
-  const inputUser = document.getElementById('portal-username');
-  const inputPass = document.getElementById('portal-password');
-  if (inputUser) inputUser.value = 'admin';
-  if (inputPass) inputPass.value = 'admin';
+function setPortalAuthMode(mode) {
+  state.portalAuthMode = mode;
+  const isLogin = mode === 'login';
+  const tabLogin = document.getElementById('tab-portal-login');
+  const tabReg = document.getElementById('tab-portal-register');
+  const grpConfirm = document.getElementById('group-portal-confirm-pass');
+  const btnSubmit = document.getElementById('btn-portal-submit');
+
+  if (tabLogin) tabLogin.classList.toggle('active', isLogin);
+  if (tabReg) tabReg.classList.toggle('active', !isLogin);
+  if (grpConfirm) grpConfirm.style.display = isLogin ? 'none' : 'block';
+  if (btnSubmit) btnSubmit.textContent = isLogin ? '🚀 Entrar no CRM' : '📝 Criar Conta com Convite';
 }
 
 async function handlePortalLogin(e) {
   e.preventDefault();
   const username = document.getElementById('portal-username').value.trim();
   const password = document.getElementById('portal-password').value;
+  const confirmPass = document.getElementById('portal-confirm-password')?.value;
 
   if (!username || !password) {
-    alert('Informe o usuário e a senha!');
+    alert('Informe o e-mail e a senha!');
     return;
   }
 
-  // Credencial padrão master admin / admin
-  if ((username.toLowerCase() === 'admin' || username.toLowerCase() === 'admin@consorciocrm.com') && password === 'admin') {
+  // MODO CRIAR CONTA COM E-MAIL E SENHA (Via Convite)
+  if (state.portalAuthMode === 'register') {
+    if (password !== confirmPass) {
+      alert('As senhas não conferem!');
+      return;
+    }
+
+    checkUrlInviteToken();
+    if (!activeUrlToken) {
+      document.getElementById('access-denied-message').innerHTML = `
+        Para se cadastrar no CRM Elite Pro com e-mail e senha, você precisa de um <strong>link de convite único</strong> enviado por um membro da equipe.<br><br>
+        Peça ao seu supervisor ou licenciado que gere um link para você.
+      `;
+      document.getElementById('modal-access-denied').classList.add('active');
+      return;
+    }
+
+    const tokenResult = await validateInviteToken(activeUrlToken);
+    if (!tokenResult.valid) {
+      document.getElementById('access-denied-message').innerHTML = `
+        ${escapeHtml(tokenResult.reason)}<br><br>
+        Peça ao seu supervisor ou licenciado que gere um novo link de convite.
+      `;
+      document.getElementById('modal-access-denied').classList.add('active');
+      return;
+    }
+
+    // Token VÁLIDO! Salvar dados de e-mail/senha temporários e abrir Modal de Onboarding
+    activeInviteData = { ...tokenResult.data, registerEmail: username, registerPass: password };
+    document.getElementById('onboarding-lock-email').textContent = username;
+    document.getElementById('onboarding-lock-cargo').textContent = (activeInviteData.cargoDestino || 'consultant').toUpperCase();
+    document.getElementById('onboarding-lock-loja').textContent = activeInviteData.lojaId || 'Matriz SP';
+    document.getElementById('onboarding-lock-equipe').textContent = activeInviteData.equipeId || 'Equipe Alpha';
+
+    document.getElementById('modal-onboarding').classList.add('active');
+    return;
+  }
+
+  // MODO LOGIN TRADICIONAL
+  // 1. Credencial Padrão Master Admin (Senha alterada para CrmElite$)
+  if ((username.toLowerCase() === 'admin' || username.toLowerCase() === 'admin@consorciocrm.com') && password === 'CrmElite$') {
     state.currentUser = { email: 'admin@consorciocrm.com', name: 'Administrador', uid: 'admin_master' };
     localStorage.setItem('crm_consorcio_auth_logged', 'true');
     localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
 
-    showToast('🔑 Login realizado com sucesso! Bem-vindo(a), Administrador.', 'success');
+    showToast('🔑 Login realizado com sucesso! Bem-vindo(a), Administrador Master.', 'success');
     checkAuthGate();
     return;
   }
 
-  // Login via Firebase se estiver configurado
+  // 2. Login via Firebase Email / Senha se configurado
   if (window.FirebaseService && window.FirebaseService.auth && window.FirebaseService.signInWithEmailAndPassword) {
     try {
       const { auth, signInWithEmailAndPassword } = window.FirebaseService;
@@ -160,7 +207,7 @@ async function handlePortalLogin(e) {
     }
   }
 
-  alert('Usuário ou senha incorretos!\n\n💡 Dica de acesso padrão:\nUsuário: admin\nSenha: admin');
+  alert('E-mail ou senha incorretos!');
 }
 
 function getUserStorageKey(baseKey) {
@@ -1612,6 +1659,9 @@ function checkUrlInviteToken() {
   const token = params.get('token');
   if (token) {
     activeUrlToken = token.trim();
+    const banner = document.getElementById('gate-invite-banner');
+    if (banner) banner.style.display = 'block';
+    setPortalAuthMode('register');
   }
 }
 
