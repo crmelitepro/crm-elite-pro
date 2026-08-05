@@ -46,12 +46,18 @@ async function initFirebaseSDK() {
   if (customConfigStr) {
     try {
       const parsed = JSON.parse(customConfigStr);
-      if (parsed && parsed.apiKey && parsed.projectId) {
+      if (parsed && typeof parsed.apiKey === 'string' && parsed.apiKey.length > 10) {
         activeConfig = parsed;
+      } else {
+        localStorage.removeItem('crm_consorcio_firebase_config');
       }
     } catch (e) {
-      console.warn('Erro ao ler chaves personalizadas. Usando padrão.');
+      localStorage.removeItem('crm_consorcio_firebase_config');
     }
+  }
+
+  if (!activeConfig || !activeConfig.apiKey || activeConfig.apiKey.length < 10) {
+    activeConfig = DEFAULT_FIREBASE_CONFIG;
   }
 
   try {
