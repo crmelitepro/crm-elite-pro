@@ -1,0 +1,24 @@
+{
+  "name": "CRM Elite Pro - Ademicon",
+  "short_name": "CRM Elite",
+  "description": "CRM Pessoal & Operação de Vendas de Consórcios Ademicon",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0b0e",
+  "theme_color": "#E30613",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
