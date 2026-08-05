@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Elite Pro - Vendas de Consórcios</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20260804_13">
+  <script type="module" src="firebase-config.js"></script>
+</head>
+<body>
+  <!-- ================= TELA DE LOGIN OBRIGATÓRIA (GATE) ================= -->
+  <div id="login-gate-screen" class="login-portal-wrapper">
+    <div class="login-portal-card">
+      <div class="login-header-brand">
+        <div class="brand-logo" style="width: 58px; height: 58px; margin: 0 auto 0.75rem auto; overflow: hidden; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+          <img src="logo.png" alt="CRM Elite Pro Logo" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+        <h2>CRM<span class="highlight" style="color: var(--primary);"> Elite Pro</span></h2>
+        <p>Portal de Acesso Restrito ao Sistema</p>
+      </div>
+
+      <!-- Badge de Acesso Padrão Admin -->
+      <div class="admin-demo-badge">
+        <div class="admin-demo-info">
+          🔑 Acesso Padrão: <strong>admin</strong> / <strong>admin</strong>
+        </div>
+        <button type="button" class="btn-quick-fill" onclick="quickFillAdminCredentials()">Preencher</button>
+      </div>
+
+      <!-- Formulário de Entrada do Portal -->
+      <form id="form-portal-login" onsubmit="handlePortalLogin(event)">
+        <div class="form-group">
+          <label for="portal-username">Usuário ou E-mail *</label>
+          <input type="text" id="portal-username" required placeholder="Digite admin ou seu e-mail" value="admin">
+        </div>
+
+        <div class="form-group">
+          <label for="portal-password">Senha *</label>
+          <input type="password" id="portal-password" required placeholder="Digite admin ou sua senha" value="admin">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem; font-weight: 700; margin-top: 0.5rem; justify-content: center;">
+          🚀 Entrar no CRM
+        </button>
+      </form>
+
+      <div class="divider-or">
+        <span>ou acesse com</span>
+      </div>
+
+      <button type="button" class="btn-google" onclick="handleGoogleSignIn()">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Entrar com o Google</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- App Container (Escondido por padrão até o login) -->
+  <div id="app" class="app-layout" style="display: none;">
+    
+    <!-- Top Header Minimalista -->
+    <header class="app-header">
+      <div class="header-brand-wrap">
+        <!-- Botão Hambúrguer para Abrir o Drawer -->
+        <button id="btn-hamburger" class="btn-hamburger" onclick="toggleSidebarDrawer()" title="Abrir Menu do Sistema">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <!-- Logo & Marca Oficial (Sempre no canto superior) -->
+        <div class="header-brand">
+          <div class="brand-logo" style="width: 36px; height: 36px; overflow: hidden; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+            <img src="logo.png" alt="CRM Elite Pro Logo" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <div class="brand-info">
+            <h1>CRM<span class="highlight"> Elite Pro</span></h1>
+          </div>
+        </div>
+
+        <!-- Indicador de Página Ativa -->
+        <div class="active-page-badge" id="header-active-page-badge">
+          <span>📊 Painel Diário</span>
+        </div>
+      </div>
+
+      <!-- Header Right Actions (Data + Botão Novo Lead exclusivo no Kanban) -->
+      <div class="header-actions">
+        <div class="date-display">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span id="current-date-text">--/--/----</span>
+        </div>
+
+        <!-- Botão Novo Lead (Visível APENAS no Pipeline/Kanban) -->
+        <button id="btn-header-new-lead" class="btn btn-primary" onclick="openNewLeadModal()" style="display: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Novo Lead</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Side Drawer Menu (Menu Lateral Retrátil) -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebarDrawer()"></div>
+    <aside id="sidebar-drawer" class="sidebar-drawer">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-logo" style="width: 32px; height: 32px; overflow: hidden; border-radius: 8px;">
+            <img src="logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <span style="font-weight: 800; font-size: 1.1rem; color: var(--text-main);">CRM <span style="color: var(--primary);">Elite Pro</span></span>
+        </div>
+        <button class="sidebar-close-btn" onclick="closeSidebarDrawer()">✕</button>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- Perfil do Usuário Logado -->
+        <div class="sidebar-user-box" id="sidebar-user-area">
+          <button class="btn btn-outline small" onclick="closeSidebarDrawer(); openAuthModal();" id="btn-login-header">
+            👤 Entrar / Cadastrar
+          </button>
+        </div>
+
+        <!-- Seletor de Perfil / Visão na Hierarquia -->
+        <div class="sidebar-section">
+          <label class="sidebar-label">Visão na Hierarquia</label>
+          <select id="role-selector" onchange="changeRole(this.value)" class="sidebar-select">
+            <option value="consultant">👤 Visão: Consultor</option>
+            <option value="supervisor">👔 Visão: Supervisor</option>
+            <option value="manager">💼 Visão: Gestor Comercial</option>
+            <option value="owner" selected>👑 Visão: Licenciado (Dono)</option>
+          </select>
+        </div>
+
+        <!-- Navegação Principal -->
+        <div class="sidebar-section">
+          <label class="sidebar-label">Menu de Navegação</label>
+          <nav class="sidebar-nav">
+            <button id="tab-dashboard" class="sidebar-nav-btn active" onclick="switchTab('dashboard')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+                <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+                <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+              </svg>
+              <span>Painel Diário</span>
+              <span id="badge-followups-count" class="nav-badge">0</span>
+            </button>
+
+            <button id="tab-kanban" class="sidebar-nav-btn" onclick="switchTab('kanban')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3h4v18H3zM10 3h4v12h-4zM17 3h4v15h-4z"></path>
+              </svg>
+              <span>Funil de Vendas (Kanban)</span>
+              <span id="badge-total-leads" class="nav-badge secondary">0</span>
+            </button>
+
+            <button id="tab-reports" class="sidebar-nav-btn" onclick="switchTab('reports')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+              <span>📈 Relatórios & BI</span>
+            </button>
+
+            <button id="tab-ranking" class="sidebar-nav-btn" onclick="switchTab('ranking')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <span>🏆 Ranking & Gamificação</span>
+            </button>
+
+            <button id="tab-supervisor" class="sidebar-nav-btn" onclick="switchTab('supervisor')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              <span>Painel Supervisor</span>
+            </button>
+
+            <button id="tab-manager" class="sidebar-nav-btn" onclick="switchTab('manager')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+              </svg>
+              <span>Painel Gestor</span>
+            </button>
+
+            <button id="tab-owner" class="sidebar-nav-btn" onclick="switchTab('owner')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <span>Painel Licenciado</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Controles do Sistema -->
+        <div class="sidebar-section">
+          <label class="sidebar-label">Opções & Sistema</label>
+          <div class="sidebar-controls">
+            <button class="sidebar-control-btn" onclick="toggleTheme()">
+              <span id="theme-toggle-icon">🌙</span>
+              <span>Alternar Tema (Claro/Escuro)</span>
+            </button>
+
+            <button class="sidebar-control-btn" onclick="closeSidebarDrawer(); openGoalsModal();">
+              <span>⚙️</span>
+              <span>Configurar Metas Diárias</span>
+            </button>
+
+            <button class="sidebar-control-btn" onclick="closeSidebarDrawer(); resetDemoData();">
+              <span>🔄</span>
+              <span>Restaurar Dados Demo</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Banner de Modo de Inspeção Individual (Drill-down) -->
+    <div id="inspection-banner" style="display: none; background: linear-gradient(90deg, #1e3a8a, #2563eb); color: #ffffff; padding: 0.6rem 1.5rem; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.1rem;">👁️</span>
+        <span>Modo de Inspeção: Você está visualizando a carteira do Consultor <strong id="inspect-consultant-name">Lucas Silva</strong></span>
+      </div>
+      <button onclick="exitInspectionMode()" style="background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; padding: 4px 10px; font-weight: bold; cursor: pointer; font-size: 0.8rem;">
+        ✕ Voltar ao Meu Painel
+      </button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="app-content">
+
+      <!-- ================= TELA 1: PAINEL DIÁRIO ================= -->
+      <section id="view-dashboard" class="tab-view active">
+        
+        <!-- Welcome Banner & Summary -->
+        <div class="dashboard-banner">
+          <div class="banner-text">
+            <h2>Olá, Consultor(a)! 👋</h2>
+            <p>Acompanhe suas metas de prospecção do dia e não perca nenhum follow-up pendente.</p>
+          </div>
+          
+          <div class="daily-progress-widget">
+            <div class="widget-header">
+              <span>Progresso Geral Diário</span>
+              <strong id="daily-score-percent">0%</strong>
+            </div>
+            <div class="progress-bar-bg">
+              <div id="daily-score-bar" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <span class="widget-subtext" id="daily-score-subtext">0 de 94 ações realizadas hoje</span>
+          </div>
+        </div>
+
+        <!-- Pirâmide de Metas: Mensal & Semanal Reajustada Dinamicamente -->
+        <div class="pyramid-goals-grid">
+          <!-- Card Meta Mensal em R$ -->
+          <div class="pyramid-card monthly">
+            <div class="pyramid-card-header">
+              <div class="pyramid-title">
+                <span>🎯 Meta Mensal de Vendas (R$)</span>
+                <h3 id="monthly-sales-progress">R$ 0 / R$ 500.000</h3>
+              </div>
+              <span class="pyramid-badge" id="monthly-sales-pct">0%</span>
+            </div>
+            <div class="progress-bar-bg" style="height: 10px; margin: 0.75rem 0;">
+              <div id="monthly-sales-bar" class="progress-bar-fill primary" style="width: 0%;"></div>
+            </div>
+            <div class="pyramid-footer">
+              <span id="monthly-sales-subtext">Restam R$ 500.000 para fechar o mês</span>
+              <button class="btn-link-edit" onclick="openGoalsConfigModal()">⚙️ Editar Meta</button>
+            </div>
+          </div>
+
+          <!-- Card Meta Semanal Reajustada Dinamicamente -->
+          <div class="pyramid-card weekly">
+            <div class="pyramid-card-header">
+              <div class="pyramid-title">
+                <span>⚡ Meta Semanal Ajustada (Recálculo Automático)</span>
+                <h3 id="weekly-sales-progress">R$ 0 / R$ 125.000</h3>
+              </div>
+              <span class="pyramid-badge amber" id="weekly-sales-pct">0%</span>
+            </div>
+            <div class="progress-bar-bg" style="height: 10px; margin: 0.75rem 0;">
+              <div id="weekly-sales-bar" class="progress-bar-fill amber" style="width: 0%;"></div>
+            </div>
+            <div class="pyramid-footer">
+              <span id="weekly-sales-subtext">⚡ Recalculado dinamicamente para garantir a meta do mês</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Grid: Left Metas, Right Follow-ups -->
+        <div class="dashboard-grid">
+          
+          <!-- Metas Diárias Tracker -->
+          <div class="card metas-card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="6"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                </svg>
+                <h3>Rastreador de Metas Diárias</h3>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button class="btn btn-outline small" onclick="openGoalsConfigModal()" title="Configurar Metas e Canais de Origem">
+                  ⚙️ Gerenciar Metas
+                </button>
+                <div class="auto-reset-tag" onclick="manualResetGoals()" style="cursor: pointer;" title="Os contadores zeram automaticamente todos os dias à meia-noite (ou clique aqui para zerar manualmente agora)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6"></path>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                  <span>Reset 00:00</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="goals-list" id="goals-list">
+              
+              <!-- Item 1: Instagram -->
+              <div class="goal-item" data-goal="instagram">
+                <div class="goal-icon instagram">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                  </svg>
+                </div>
+                <div class="goal-info">
+                  <div class="goal-title-wrap">
+                    <span class="goal-name">Mensagens Instagram</span>
+                    <span class="goal-count" id="count-instagram">0/30</span>
+                  </div>
+                  <div class="progress-bar-bg small">
+                    <div id="bar-instagram" class="progress-bar-fill instagram" style="width: 0%"></div>
+                  </div>
+                </div>
+                <div class="goal-controls">
+                  <button class="btn-step" onclick="updateGoal('instagram', -1)" title="Decrementar">-</button>
+                  <button class="btn-step add" onclick="updateGoal('instagram', 1)" title="Incrementar">+</button>
+                </div>
+              </div>
+
+              <!-- Item 2: LinkedIn -->
+              <div class="goal-item" data-goal="linkedin">
+                <div class="goal-icon linkedin">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                    <rect x="2" y="9" width="4" height="12"></rect>
+                    <circle cx="4" cy="4" r="2"></circle>
+                  </svg>
+                </div>
+                <div class="goal-info">
+                  <div class="goal-title-wrap">
+                    <span class="goal-name">Mensagens LinkedIn</span>
+                    <span class="goal-count" id="count-linkedin">0/30</span>
+                  </div>
+                  <div class="progress-bar-bg small">
+                    <div id="bar-linkedin" class="progress-bar-fill linkedin" style="width: 0%"></div>
+                  </div>
+                </div>
+                <div class="goal-controls">
+                  <button class="btn-step" onclick="updateGoal('linkedin', -1)" title="Decrementar">-</button>
+                  <button class="btn-step add" onclick="updateGoal('linkedin', 1)" title="Incrementar">+</button>
+                </div>
+              </div>
+
+              <!-- Item 3: WhatsApp -->
+              <div class="goal-item" data-goal="whatsapp">
+                <div class="goal-icon whatsapp">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                  </svg>
+                </div>
+                <div class="goal-info">
+                  <div class="goal-title-wrap">
+                    <span class="goal-name">Mensagens WhatsApp</span>
+                    <span class="goal-count" id="count-whatsapp">0/30</span>
+                  </div>
+                  <div class="progress-bar-bg small">
+                    <div id="bar-whatsapp" class="progress-bar-fill whatsapp" style="width: 0%"></div>
+                  </div>
+                </div>
+                <div class="goal-controls">
+                  <button class="btn-step" onclick="updateGoal('whatsapp', -1)" title="Decrementar">-</button>
+                  <button class="btn-step add" onclick="updateGoal('whatsapp', 1)" title="Incrementar">+</button>
+                </div>
+              </div>
+
+              <!-- Item 4: Telefones Captados -->
+              <div class="goal-item" data-goal="telefones">
+                <div class="goal-icon telefones">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                  </svg>
+                </div>
+                <div class="goal-info">
+                  <div class="goal-title-wrap">
+                    <span class="goal-name">Telefones Captados</span>
+                    <span class="goal-count" id="count-telefones">0/10</span>
+                  </div>
+                  <div class="progress-bar-bg small">
+                    <div id="bar-telefones" class="progress-bar-fill telefones" style="width: 0%"></div>
+                  </div>
+                </div>
+                <div class="goal-controls">
+                  <button class="btn-step" onclick="updateGoal('telefones', -1)" title="Decrementar">-</button>
+                  <button class="btn-step add" onclick="updateGoal('telefones', 1)" title="Incrementar">+</button>
+                </div>
+              </div>
+
+              <!-- Item 5: Reuniões Realizadas -->
+              <div class="goal-item" data-goal="reunioes">
+                <div class="goal-icon reunioes">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div class="goal-info">
+                  <div class="goal-title-wrap">
+                    <span class="goal-name">Reuniões Realizadas</span>
+                    <span class="goal-count" id="count-reunioes">0/2</span>
+                  </div>
+                  <div class="progress-bar-bg small">
+                    <div id="bar-reunioes" class="progress-bar-fill reunioes" style="width: 0%"></div>
+                  </div>
+                </div>
+                <div class="goal-controls">
+                  <button class="btn-step" onclick="updateGoal('reunioes', -1)" title="Decrementar">-</button>
+                  <button class="btn-step add" onclick="updateGoal('reunioes', 1)" title="Incrementar">+</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Follow-ups de Hoje List Card -->
+          <div class="card followups-card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <h3>Follow-ups de Hoje & Atrasados</h3>
+              </div>
+              <span id="followup-filter-label" class="badge badge-warning">Carregando...</span>
+            </div>
+
+            <!-- Followups Container -->
+            <div id="followups-container" class="followups-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= TELA 2: FUNIL DE VENDAS (KANBAN) ================= -->
+      <section id="view-kanban" class="tab-view">
+        
+        <!-- Kanban Toolbar Filters & Controls -->
+        <div class="kanban-toolbar">
+          <div class="search-box">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="search-input" placeholder="Buscar lead por nome, telefone ou notas..." oninput="renderKanban()">
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-origem">Origem:</label>
+            <select id="filter-origem" onchange="renderKanban()">
+              <option value="todos">Todas as Origens</option>
+              <option value="Instagram">Instagram</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Indicação">Indicação</option>
+            </select>
+          </div>
+
+          <div class="kanban-stats-summary">
+            <span class="stat-pill">Total: <strong id="stat-total-volume">R$ 0</strong></span>
+            <button class="btn btn-outline small" onclick="resetDemoData()" title="Restaurar dados de teste demonstrativos">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              <span>Restaurar Dados Demo</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Kanban Board Scrollable Canvas (7 Columns) -->
+        <div class="kanban-board" id="kanban-board">
+          <!-- 7 Columns generated dynamically by JS -->
+        </div>
+
+      </section>
+
+      <!-- Visão 3: Painel do Supervisor (Visão da Equipe & Inspeção) -->
+      <section id="view-supervisor" class="view-section" style="display: none;">
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <div class="card-header" style="justify-content: space-between;">
+            <div class="card-title">
+              <h3>👥 Panorama Geral da Equipe Alpha</h3>
+              <span class="subtitle" style="font-size: 0.8rem; color: var(--text-muted);">Supervisor: Carlos Eduardo | 5 Consultores Ativos</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-outline small" onclick="renderSupervisorView()">🔄 Atualizar Dados</button>
+            </div>
+          </div>
+          <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Prospecções Hoje (Equipe)</span>
+              <h4 style="font-size: 1.4rem; color: var(--primary); margin-top: 0.25rem;">128 / 150</h4>
+              <span style="font-size: 0.7rem; color: var(--accent-emerald);">85% da Meta Diária da Equipe</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Leads no Funil da Equipe</span>
+              <h4 style="font-size: 1.4rem; color: var(--text-main); margin-top: 0.25rem;">42 Leads</h4>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">Total em carteira</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Vendas Concluídas no Mês</span>
+              <h4 style="font-size: 1.4rem; color: var(--accent-emerald); margin-top: 0.25rem;">R$ 1.850.000</h4>
+              <span style="font-size: 0.7rem; color: var(--accent-emerald);">14 Cartas de Consórcio</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Follow-ups Atrasados</span>
+              <h4 style="font-size: 1.4rem; color: var(--accent-rose); margin-top: 0.25rem;">3 PENDENTES</h4>
+              <span style="font-size: 0.7rem; color: var(--accent-rose);">Exigem atenção imediata</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela de Consultores da Equipe com Botão de Inspeção Individual (Drill-Down) -->
+        <div class="card">
+          <div class="card-header">
+            <h3>📋 Consultores da Equipe & Desempenho Individual</h3>
+          </div>
+          <div style="overflow-x: auto; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                  <th style="padding: 0.75rem;">Consultor</th>
+                  <th style="padding: 0.75rem;">Prospecções Hoje</th>
+                  <th style="padding: 0.75rem;">Progresso Meta</th>
+                  <th style="padding: 0.75rem;">Leads Ativos</th>
+                  <th style="padding: 0.75rem;">Vendas no Mês</th>
+                  <th style="padding: 0.75rem;">Status</th>
+                  <th style="padding: 0.75rem; text-align: right;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="supervisor-team-tbody">
+                <!-- Rendered dynamically by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Visão 4: Painel do Gestor Comercial (Gestão Regional) -->
+      <section id="view-manager" class="view-section" style="display: none;">
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <div class="card-header">
+            <div class="card-title">
+              <h3>💼 Panorama Geral Regional - Comparativo de Equipes</h3>
+              <span class="subtitle" style="font-size: 0.8rem; color: var(--text-muted);">Gestor Comercial: Roberto Mendes | 3 Equipes de Vendas</span>
+            </div>
+          </div>
+          <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Vendas Totais da Região</span>
+              <h4 style="font-size: 1.5rem; color: var(--accent-emerald); margin-top: 0.25rem;">R$ 4.620.000</h4>
+              <span style="font-size: 0.7rem; color: var(--accent-emerald);">36 Cartas Fechadas</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Equipe Destaque do Mês</span>
+              <h4 style="font-size: 1.5rem; color: var(--primary); margin-top: 0.25rem;">Equipe Alpha</h4>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">Supervisor: Carlos Eduardo</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Proposta ➔ Venda (Conversão)</span>
+              <h4 style="font-size: 1.5rem; color: #3b82f6; margin-top: 0.25rem;">32.4%</h4>
+              <span style="font-size: 0.7rem; color: var(--accent-emerald);">+3.5% acima da média</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>🏆 Ranking Comparativo por Equipe & Supervisor</h3>
+          </div>
+          <div id="manager-teams-container" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+            <!-- Rendered dynamically by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Visão 5: Painel do Licenciado / Proprietário (Loja Master 360°) -->
+      <section id="view-owner" class="view-section" style="display: none;">
+        <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(30,58,138,0.4), rgba(17,24,39,0.9));">
+          <div class="card-header">
+            <div class="card-title">
+              <h3 style="font-size: 1.3rem;">👑 Panorama Executivo 360° da Loja</h3>
+              <span class="subtitle" style="color: var(--text-muted);">Licenciado / Franqueado | Visão Financeira & Desempenho Global</span>
+            </div>
+          </div>
+          <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.25rem;">
+            <div class="kpi-card" style="background: rgba(0,0,0,0.3); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Volume Total Comercializado (Mês)</span>
+              <h3 style="font-size: 1.8rem; color: var(--accent-emerald); margin-top: 0.25rem;">R$ 9.840.000</h3>
+              <span style="font-size: 0.75rem; color: var(--accent-emerald);">78 Contratos Vendidos</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(0,0,0,0.3); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Faturamento Estimado em Comissões</span>
+              <h3 style="font-size: 1.8rem; color: #f59e0b; margin-top: 0.25rem;">R$ 393.600</h3>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Comissão Média 4.0%</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(0,0,0,0.3); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Ticket Médio por Carta</span>
+              <h3 style="font-size: 1.8rem; color: #3b82f6; margin-top: 0.25rem;">R$ 126.150</h3>
+              <span style="font-size: 0.75rem; color: var(--accent-emerald);">+8% em relação ao mês anterior</span>
+            </div>
+            <div class="kpi-card" style="background: rgba(0,0,0,0.3); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Total de Consultores Ativos</span>
+              <h3 style="font-size: 1.8rem; color: var(--text-main); margin-top: 0.25rem;">15 Consultores</h3>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">3 Supervisores | 1 Gestor</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROI por Canal de Origem de Leads -->
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <div class="card-header">
+            <h3>📊 ROI & Desempenho Financeiro por Canal de Origem de Leads</h3>
+          </div>
+          <div style="overflow-x: auto; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                  <th style="padding: 0.75rem;">Canal de Origem</th>
+                  <th style="padding: 0.75rem;">Leads Gerados</th>
+                  <th style="padding: 0.75rem;">Vendas Fechadas</th>
+                  <th style="padding: 0.75rem;">Volume em R$</th>
+                  <th style="padding: 0.75rem;">Taxa Conversão</th>
+                  <th style="padding: 0.75rem;">Retorno (ROI)</th>
+                </tr>
+              </thead>
+              <tbody id="owner-roi-tbody">
+                <!-- Rendered dynamically by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Gerenciamento de Usuários & Estrutura da Loja -->
+        <div class="card">
+          <div class="card-header" style="justify-content: space-between;">
+            <h3>⚙️ Estrutura de Equipes & Usuários da Loja</h3>
+            <button class="btn btn-primary small" onclick="alert('Formulário de cadastro de novo colaborador na estrutura da loja')">➕ Cadastrar Novo Colaborador</button>
+          </div>
+          <div id="owner-users-container" style="margin-top: 1rem;">
+            <!-- Rendered dynamically by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TELA 6: RELATÓRIOS & BI ================= -->
+      <section id="view-reports" class="tab-view">
+        
+        <!-- Toolbar de Filtros para Relatórios -->
+        <div class="reports-toolbar">
+          <div class="reports-filter-group">
+            <label>Período:</label>
+            <div class="reports-time-shortcuts">
+              <button class="btn-report-shortcut active" id="btn-report-today" onclick="setReportPeriod('today')">Hoje</button>
+              <button class="btn-report-shortcut" id="btn-report-week" onclick="setReportPeriod('week')">Esta Semana</button>
+              <button class="btn-report-shortcut" id="btn-report-month" onclick="setReportPeriod('month')">Este Mês</button>
+              <button class="btn-report-shortcut" id="btn-report-30days" onclick="setReportPeriod('30days')">Últimos 30 dias</button>
+            </div>
+          </div>
+
+          <div class="reports-filter-group">
+            <label for="report-date-start">De:</label>
+            <input type="date" id="report-date-start" onchange="renderReportsView()">
+            <label for="report-date-end">Até:</label>
+            <input type="date" id="report-date-end" onchange="renderReportsView()">
+          </div>
+
+          <div class="reports-filter-group">
+            <label for="report-filter-origem">Canal de Origem:</label>
+            <select id="report-filter-origem" onchange="renderReportsView()">
+              <option value="todos">Todos os Canais</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Telefones">Telefones</option>
+              <option value="Indicação">Indicação</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Cards KPIs Principais do Relatório -->
+        <div class="reports-kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-title">Total Prospecções</div>
+            <div class="kpi-value" id="kpi-total-prospections">0</div>
+            <div class="kpi-subtext" id="kpi-total-prospections-sub">No período selecionado</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">Taxa de Conversão</div>
+            <div class="kpi-value emerald" id="kpi-conversion-rate">0%</div>
+            <div class="kpi-subtext" id="kpi-conversion-sub">Abordagens -> Vendas</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">Canal Campeão</div>
+            <div class="kpi-value amber" id="kpi-top-channel">--</div>
+            <div class="kpi-subtext" id="kpi-top-channel-sub">Maior faturamento gerado</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">Faturamento Vendas</div>
+            <div class="kpi-value primary" id="kpi-total-revenue">R$ 0</div>
+            <div class="kpi-subtext" id="kpi-total-revenue-sub">Volume fechado no período</div>
+          </div>
+        </div>
+
+        <!-- Dashboard BI: Charts & Breakdowns -->
+        <div class="reports-grid">
+          <!-- Card: Produção por Canal de Origem -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <h3>📊 Produção de Prospecção por Canal</h3>
+              </div>
+            </div>
+            <div id="report-channels-chart" class="report-bars-container">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Card: Funil de Conversão Operacional -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <h3>🎯 Funil Operacional da Carteira</h3>
+              </div>
+            </div>
+            <div id="report-funnel-chart" class="report-funnel-container">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela Detalhada de Prospecção por Origem -->
+        <div class="card" style="margin-top: 1.5rem;">
+          <div class="card-header">
+            <div class="card-title">
+              <h3>📋 Tabela Detalhada do Desempenho Operacional</h3>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Canal / Origem</th>
+                  <th>Prospecções Realizadas</th>
+                  <th>Leads Captados</th>
+                  <th>Reuniões Realizadas</th>
+                  <th>Vendas Fechadas</th>
+                  <th>Faturamento (R$)</th>
+                  <th>Eficiência</th>
+                </tr>
+              </thead>
+              <tbody id="report-table-body">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= TELA 7: RANKING & GAMIFICAÇÃO ================= -->
+      <section id="view-ranking" class="tab-view">
+        
+        <!-- Toolbar de Seleção do Ranking -->
+        <div class="ranking-toolbar">
+          <div class="ranking-mode-switch">
+            <button class="btn-ranking-mode active" id="btn-rank-month" onclick="setRankingMode('month')">
+              👤 Consultores (Mês)
+            </button>
+            <button class="btn-ranking-mode" id="btn-rank-teams" onclick="setRankingMode('teams')">
+              👥 Equipes da Loja (Mês)
+            </button>
+            <!-- Exclusivo para Licenciado (Dono da Loja) -->
+            <button class="btn-ranking-mode" id="btn-rank-quarter" onclick="setRankingMode('quarter')" style="display: none;">
+              👑 Consultores (Trimestre)
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <div class="ranking-period-info">
+              <span id="ranking-period-title">🏆 Ranking de Vendas - Agosto/2026</span>
+            </div>
+
+            <!-- Controle do Modo TV (Rotação Automática com Tempo Configurável) -->
+            <div class="tv-rotation-control" style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-input); padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid var(--border-color);">
+              <span id="tv-timer-badge" style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); font-family: 'JetBrains Mono', monospace;">
+                ⏱️ TV: 60s
+              </span>
+              <select id="tv-interval-select" onchange="changeTvInterval(this.value)" style="background: transparent; border: none; color: var(--text-main); font-size: 0.75rem; font-weight: 700; cursor: pointer; outline: none;" title="Configurar tempo de transição das telas do ranking">
+                <option value="15">15s</option>
+                <option value="30">30s</option>
+                <option value="60" selected>1 min</option>
+                <option value="120">2 min</option>
+                <option value="300">5 min</option>
+              </select>
+              <button id="btn-tv-toggle" class="btn btn-outline small" onclick="toggleTvRotation()" style="padding: 2px 8px; font-size: 0.75rem;" title="Pausar/Iniciar Troca Automática">
+                ⏸️ Pausar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pódio de Destaque dos 3 Primeiros Colocados -->
+        <div id="podium-section" class="podium-wrapper">
+          <!-- Rendered dynamically by JS -->
+        </div>
+
+        <!-- Conteúdo do Ranking (Cards de Consultores do 4º em diante OU Tabela de Equipes) -->
+        <div id="ranking-content-area" style="margin-top: 2rem;">
+          <!-- Rendered dynamically by JS -->
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal 1: Adicionar / Editar Lead -->
+  <div id="modal-lead" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-lead-title">Cadastrar Novo Lead</h3>
+        <button class="modal-close-btn" onclick="closeLeadModal()">&times;</button>
+      </div>
+      <form id="form-lead" onsubmit="handleLeadSubmit(event)">
+        <input type="hidden" id="lead-id">
+
+        <div class="form-group">
+          <label for="lead-nome">Nome do Cliente *</label>
+          <input type="text" id="lead-nome" required placeholder="Ex: Roberto Silva">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lead-telefone">Telefone (WhatsApp) *</label>
+            <input type="text" id="lead-telefone" required placeholder="(11) 99876-5432" oninput="maskPhone(this)">
+          </div>
+
+          <div class="form-group">
+            <label for="lead-origem">Origem do Lead *</label>
+            <select id="lead-origem" required>
+              <option value="Instagram">Instagram</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Indicação">Indicação</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lead-status">Etapa do Funil *</label>
+            <select id="lead-status" required>
+              <option value="1">1. Contato Captado</option>
+              <option value="2">2. 1ª Reunião (Sondagem)</option>
+              <option value="3">3. Montando Proposta/Cadastro</option>
+              <option value="4">4. 2ª Reunião (Apresentação)</option>
+              <option value="5">5. Aguardando Contrato/Pagamento</option>
+              <option value="6">6. Stand-by (Pensando)</option>
+              <option value="7">7. Venda Fechada</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="lead-data">Próximo Contato *</label>
+            <input type="date" id="lead-data" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="lead-valor">Valor Estimado do Consórcio (R$)</label>
+          <input type="number" id="lead-valor" placeholder="Ex: 250000" step="1000">
+        </div>
+
+        <div class="form-group">
+          <label for="lead-notas">Notas da Reunião / Histórico</label>
+          <textarea id="lead-notas" rows="3" placeholder="Insira aqui objeções, cotas de interesse ou detalhes das reuniões..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeLeadModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Lead</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: OBRIGATÓRIO de Reagendamento (Contato Captado & Stand-by) -->
+  <div id="modal-mandatory-date" class="modal-overlay mandatory">
+    <div class="modal-card alert-border">
+      <div class="modal-header warning-header">
+        <div class="header-icon-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <h3>Data de Próximo Contato Obrigatória</h3>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p class="alert-desc">
+          Você moveu o lead <strong id="mandatory-lead-name">...</strong> para a etapa 
+          <span id="mandatory-stage-name" class="stage-tag">...</span>.
+        </p>
+        <p class="alert-instruction">
+          É obrigatório definir a data do próximo contato para garantir que este lead reapareça nos seus <strong>Follow-ups de Hoje</strong> no dia correto!
+        </p>
+
+        <form id="form-mandatory-date" onsubmit="confirmMandatoryDate(event)">
+          <div class="form-group margin-top">
+            <label for="mandatory-date-input">Selecione a Data do Próximo Contato *</label>
+            <input type="date" id="mandatory-date-input" required class="large-date-input">
+          </div>
+
+          <div class="form-group">
+            <label for="mandatory-notes-input">Atualizar Nota / Observação (Opcional)</label>
+            <input type="text" id="mandatory-notes-input" placeholder="Motivo do retorno ou agendamento...">
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="cancelMandatoryDate()">Cancelar (Desfazer Movimento)</button>
+            <button type="submit" class="btn btn-warning">Confirmar Agendamento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Detalhes Rápidos & WhatsApp Launcher -->
+  <div id="modal-quick-view" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="quick-lead-name">Detalhes do Lead</h3>
+        <button class="modal-close-btn" onclick="closeQuickViewModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="quick-view-content">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Gerenciar Metas & Origens -->
+  <div id="modal-goals-config" class="modal-overlay" style="align-items: flex-start; overflow-y: auto; padding: 20px 10px;">
+    <!-- Botão de Fechar Emergencial Flutuante no Canto da Tela -->
+    <button type="button" onclick="closeGoalsConfigModal()" title="Fechar Janela (ESC)" style="position: fixed; top: 15px; right: 20px; z-index: 99999; background: #f43f5e; color: #ffffff; border: 2px solid #ffffff; border-radius: 50%; width: 44px; height: 44px; font-size: 1.4rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 20px rgba(0,0,0,0.6);">
+      &times;
+    </button>
+
+    <div class="modal-card large" style="max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; margin: 10px auto; position: relative; box-shadow: 0 25px 60px rgba(0,0,0,0.8);">
+      <div class="modal-header" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-card); z-index: 10;">
+        <h3 style="font-size: 1.1rem; margin: 0;">⚙️ Gerenciar Metas & Origens de Leads</h3>
+        <button type="button" onclick="closeGoalsConfigModal()" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 6px; padding: 6px 14px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">
+          Fechar ✕
+        </button>
+      </div>
+
+      <div class="modal-body" style="flex: 1 1 auto; overflow-y: auto; padding: 15px 5px 15px 0; min-height: 0;">
+        <div class="config-goals-container">
+
+          <!-- Configuração de Meta Mensal de Faturamento (R$) -->
+          <div class="add-goal-box" style="padding: 1rem; margin-bottom: 1rem; border-color: var(--primary);">
+            <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--primary);">🎯 Meta Mensal de Faturamento em Vendas (R$)</h4>
+            <div class="form-group" style="margin-bottom: 0.25rem;">
+              <label for="config-monthly-target-input">Meta de Vendas para o Mês (R$) *</label>
+              <input type="number" id="config-monthly-target-input" step="10000" min="0" value="500000" placeholder="Ex: 500000" onchange="saveMonthlyTargetFromConfig(this.value)">
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">
+                💡 O sistema dividirá e recalculará dinamicamente a sua meta semanal a cada semana para você bater este objetivo!
+              </span>
+            </div>
+          </div>
+
+          <!-- Formulário para Adicionar Nova Meta/Origem -->
+          <div class="add-goal-box" style="padding: 1rem;">
+            <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">➕ Adicionar Nova Meta / Canal de Origem</h4>
+            <form id="form-add-goal" onsubmit="handleAddGoalSubmit(event)">
+              <div class="form-row">
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                  <label for="new-goal-name">Nome da Meta / Canal *</label>
+                  <input type="text" id="new-goal-name" required placeholder="Ex: Mensagens Facebook, TikTok Direct">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                  <label for="new-goal-target">Meta Diária (Alvo) *</label>
+                  <input type="number" id="new-goal-target" required min="1" value="25" placeholder="Ex: 25">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                  <label for="new-goal-icon">Ícone / Canal *</label>
+                  <select id="new-goal-icon" required>
+                    <option value="facebook">Facebook</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telefones">Telefones Captados</option>
+                    <option value="reunioes">Reuniões</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="google">Google Ads</option>
+                    <option value="indicacao">Indicação</option>
+                    <option value="generic">Outro / Geral</option>
+                  </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="new-goal-is-lead-source" checked>
+                    <span>Usar como Origem de Lead no CRM</span>
+                  </label>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary small" style="margin-top: 0.25rem;">Adicionar Canal/Meta</button>
+            </form>
+          </div>
+
+          <!-- Lista de Metas Cadastradas para Ajustar Quantidades e Excluir -->
+          <div>
+            <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">
+              Metas Ativas (Ajuste a quantidade alvo de cada uma):
+            </h4>
+            <div id="config-goals-list" class="config-goals-list" style="max-height: 220px; overflow-y: auto; padding-right: 4px;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer" style="flex-shrink: 0; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background-color: var(--bg-card); z-index: 10;">
+        <button type="button" class="btn btn-outline" onclick="closeGoalsConfigModal()">Fechar (ESC)</button>
+        <button type="button" class="btn btn-primary" onclick="closeGoalsConfigModal()" style="background: linear-gradient(135deg, var(--primary), #2563eb); font-weight: bold;">Salvar & Concluir ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Autenticação (Login & Cadastro) -->
+  <div id="modal-auth" class="modal-overlay" style="align-items: center;">
+    <div class="modal-card" style="max-width: 440px; padding: 2rem;">
+      <div class="modal-header" style="justify-content: center; flex-direction: column; gap: 0.5rem; text-align: center; border: none; padding: 0;">
+        <div class="brand-logo" style="width: 50px; height: 50px; margin: 0 auto; overflow: hidden; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+          <img src="logo.png" alt="CRM Elite Pro Logo" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+        <h3 id="auth-modal-title" style="font-size: 1.3rem;">Acessar o CRM Elite Pro</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Sincronize seus leads e metas com segurança na nuvem</p>
+      </div>
+
+      <!-- Abas Entrar vs Cadastrar -->
+      <div class="auth-tabs" style="margin-top: 1rem;">
+        <button type="button" class="auth-tab-btn active" id="tab-auth-login" onclick="switchAuthTab('login')">Entrar</button>
+        <button type="button" class="auth-tab-btn" id="tab-auth-register" onclick="switchAuthTab('register')">Criar Conta</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <form id="form-auth" onsubmit="handleAuthSubmit(event)">
+          <div class="form-group">
+            <label for="auth-email">Seu E-mail *</label>
+            <input type="email" id="auth-email" required placeholder="consultor@exemplo.com">
+          </div>
+
+          <div class="form-group">
+            <label for="auth-password">Sua Senha *</label>
+            <input type="password" id="auth-password" required minlength="6" placeholder="••••••••">
+          </div>
+
+          <div class="form-group" id="group-confirm-password" style="display: none;">
+            <label for="auth-confirm-password">Confirmar Senha *</label>
+            <input type="password" id="auth-confirm-password" minlength="6" placeholder="••••••••">
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="btn-auth-submit" style="width: 100%; margin-top: 0.5rem; padding: 0.8rem; font-size: 0.95rem; font-weight: 700;">
+            Entrar no CRM
+          </button>
+        </form>
+
+        <div class="divider-or">
+          <span>ou entre com</span>
+        </div>
+
+        <button type="button" class="btn-google" onclick="handleGoogleSignIn()">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Continuar com o Google</span>
+        </button>
+
+        <div style="margin-top: 1.25rem; text-align: center;">
+          <button type="button" onclick="closeAuthModal()" style="background: transparent; border: none; color: var(--text-dim); font-size: 0.8rem; cursor: pointer; text-decoration: underline;">
+            Continuar no Modo Local / Offline
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 6: Chaves do Firebase (Opcional para o Usuário) -->
+  <div id="modal-firebase-config" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>⚙️ Configuração do Firebase</h3>
+        <button class="modal-close-btn" onclick="closeFirebaseConfigModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Cole abaixo o objeto de configuração gerado no seu <strong>Console do Firebase</strong> (opcional):
+        </p>
+        <form onsubmit="handleSaveFirebaseConfig(event)">
+          <div class="form-group">
+            <label for="fb-api-key">apiKey</label>
+            <input type="text" id="fb-api-key" placeholder="AIzaSy...">
+          </div>
+          <div class="form-group">
+            <label for="fb-project-id">projectId</label>
+            <input type="text" id="fb-project-id" placeholder="meu-projeto-crm">
+          </div>
+          <div class="form-group">
+            <label for="fb-auth-domain">authDomain</label>
+            <input type="text" id="fb-auth-domain" placeholder="meu-projeto-crm.firebaseapp.com">
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeFirebaseConfigModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Chaves</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="app.js?v=20260804_13"></script>
+</body>
+</html>
