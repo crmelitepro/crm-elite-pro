@@ -18,8 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260804_20">
-  <script type="module" src="firebase-service.js?v=20260804_20"></script>
+  <link rel="stylesheet" href="styles.css?v=20260805_21">
+  <script type="module" src="firebase-service.js?v=20260805_21"></script>
 </head>
 <body>
   <!-- ================= TELA DE LOGIN OBRIGATÓRIA (GATE) ================= -->
@@ -741,6 +741,14 @@
               <option value="Indicação">Indicação</option>
             </select>
           </div>
+
+          <div class="reports-filter-group">
+            <label for="report-filter-consultant">Consultor:</label>
+            <select id="report-filter-consultant" onchange="renderReportsView()">
+              <option value="todos">Todos os Consultores (Loja)</option>
+              <!-- Preenchido dinamicamente com a lista de consultores -->
+            </select>
+          </div>
         </div>
 
         <!-- Cards KPIs Principais do Relatório -->
@@ -1199,6 +1207,6 @@
   <!-- Toast Notifications Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js?v=20260804_20"></script>
+  <script src="app.js?v=20260805_21"></script>
 </body>
 </html>

@@ -241,6 +241,16 @@ function manualResetGoals() {
   }
 }
 
+function getConsultantInfo() {
+  const u = state.currentUser;
+  return {
+    consultantUid: u ? (u.uid || u.email) : 'admin_master',
+    consultantEmail: u ? (u.email || 'admin@consorciocrm.com') : 'admin@consorciocrm.com',
+    consultantName: u ? (u.displayName || u.name || u.email) : 'Administrador',
+    teamName: u ? (u.team || 'Equipe Alpha') : 'Equipe Alpha'
+  };
+}
+
 function saveGoalConfigs() {
   localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOAL_CONFIGS), JSON.stringify(state.goalConfigs));
   renderGoals();
@@ -249,8 +259,14 @@ function saveGoalConfigs() {
   if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
     const { db, doc, setDoc } = window.FirebaseService;
     try {
+      const info = getConsultantInfo();
+      const todayStr = getTodayDateString();
       const goalsRef = doc(db, 'users', state.currentUser.uid, 'config', 'goals');
-      setDoc(goalsRef, { goalConfigs: state.goalConfigs, goals: state.goals }, { merge: true });
+      const storeGoalRef = doc(db, 'store_daily_goals', `${info.consultantUid}_${todayStr}`);
+      const payload = { goalConfigs: state.goalConfigs, goals: state.goals, ...info, date: todayStr, updatedAt: new Date().toISOString() };
+      
+      setDoc(goalsRef, payload, { merge: true });
+      setDoc(storeGoalRef, payload, { merge: true });
     } catch (err) {
       console.error('Erro ao sincronizar metas na nuvem:', err);
     }
@@ -264,8 +280,14 @@ function saveGoals() {
   if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
     const { db, doc, setDoc } = window.FirebaseService;
     try {
+      const info = getConsultantInfo();
+      const todayStr = getTodayDateString();
       const goalsRef = doc(db, 'users', state.currentUser.uid, 'config', 'goals');
-      setDoc(goalsRef, { goalConfigs: state.goalConfigs, goals: state.goals }, { merge: true });
+      const storeGoalRef = doc(db, 'store_daily_goals', `${info.consultantUid}_${todayStr}`);
+      const payload = { goalConfigs: state.goalConfigs, goals: state.goals, ...info, date: todayStr, updatedAt: new Date().toISOString() };
+
+      setDoc(goalsRef, payload, { merge: true });
+      setDoc(storeGoalRef, payload, { merge: true });
     } catch (err) {
       console.error('Erro ao sincronizar metas na nuvem:', err);
     }
@@ -283,6 +305,16 @@ function loadLeads() {
 }
 
 function saveLeads() {
+  const info = getConsultantInfo();
+  state.leads.forEach(l => {
+    if (!l.consultantUid) {
+      l.consultantUid = info.consultantUid;
+      l.consultantEmail = info.consultantEmail;
+      l.consultantName = info.consultantName;
+      l.teamName = info.teamName;
+    }
+  });
+
   localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
   renderFollowups();
   renderKanban();
@@ -293,7 +325,11 @@ function saveLeads() {
     state.leads.forEach(async (lead) => {
       try {
         const leadRef = doc(db, 'users', state.currentUser.uid, 'leads', lead.id);
-        await setDoc(leadRef, lead);
+        const storeLeadRef = doc(db, 'store_leads', lead.id);
+        const payload = { ...lead, ...info, updatedAt: new Date().toISOString() };
+        
+        await setDoc(leadRef, payload, { merge: true });
+        await setDoc(storeLeadRef, payload, { merge: true });
       } catch (err) {
         console.error('Erro ao salvar lead na nuvem:', err);
       }
@@ -1867,8 +1903,45 @@ function setReportPeriod(period) {
   renderReportsView();
 }
 
+function populateConsultantFilterDropdown() {
+  const sel = document.getElementById('report-filter-consultant');
+  if (!sel) return;
+  const currentVal = sel.value || 'todos';
+
+  const consultantsMap = new Map();
+  
+  if (state.currentUser) {
+    const uid = state.currentUser.uid || state.currentUser.email;
+    const name = state.currentUser.displayName || state.currentUser.name || state.currentUser.email;
+    consultantsMap.set(uid, name);
+  }
+
+  state.leads.forEach(l => {
+    if (l.consultantUid) {
+      consultantsMap.set(l.consultantUid, l.consultantName || l.consultantEmail || l.consultantUid);
+    }
+  });
+
+  if (typeof MOCK_RANKING_CONSULTANTS !== 'undefined') {
+    MOCK_RANKING_CONSULTANTS.slice(0, 5).forEach(c => {
+      consultantsMap.set(`mock_${c.rank}`, `${c.name} (${c.team})`);
+    });
+  }
+
+  let html = `<option value="todos">Todos os Consultores (Loja)</option>`;
+  consultantsMap.forEach((name, uid) => {
+    const selected = (currentVal === uid) ? 'selected' : '';
+    html += `<option value="${escapeHtml(uid)}" ${selected}>${escapeHtml(name)}</option>`;
+  });
+
+  sel.innerHTML = html;
+}
+
 function renderReportsView() {
+  populateConsultantFilterDropdown();
+
   const origemFilter = document.getElementById('report-filter-origem')?.value || 'todos';
+  const consultantFilter = document.getElementById('report-filter-consultant')?.value || 'todos';
   const customStart = document.getElementById('report-date-start')?.value;
   const customEnd = document.getElementById('report-date-end')?.value;
 
@@ -1893,6 +1966,7 @@ function renderReportsView() {
   // Filtrar leads
   const filteredLeads = state.leads.filter(l => {
     if (origemFilter !== 'todos' && l.origem !== origemFilter) return false;
+    if (consultantFilter !== 'todos' && l.consultantUid && l.consultantUid !== consultantFilter) return false;
     const d = l.createdAt ? new Date(l.createdAt) : new Date();
     return d >= startDate && d <= endDate;
   });
