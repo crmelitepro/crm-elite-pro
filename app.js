@@ -1386,14 +1386,18 @@ function setupFirebaseAuthListener() {
 
   onAuthStateChanged(auth, (user) => {
     state.currentUser = user;
-    renderUserHeader();
 
     if (user) {
+      localStorage.setItem('crm_consorcio_auth_logged', 'true');
+      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify({ email: user.email, name: user.displayName || user.email }));
+      checkAuthGate();
+      renderUserHeader();
       showToast(`🔑 Conectado como ${user.email}`, 'success');
       syncLeadsFromFirestore(user.uid);
       syncGoalsFromFirestore(user.uid);
       closeAuthModal();
     } else {
+      renderUserHeader();
       loadLeads();
       loadGoalConfigs();
     }
@@ -1517,7 +1521,13 @@ async function handleGoogleSignIn() {
     return;
   }
   try {
-    await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, googleProvider);
+    if (result && result.user) {
+      state.currentUser = result.user;
+      localStorage.setItem('crm_consorcio_auth_logged', 'true');
+      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify({ email: result.user.email, name: result.user.displayName || result.user.email }));
+      checkAuthGate();
+    }
   } catch (error) {
     console.error('Erro ao entrar com Google:', error);
     if (error.code === 'auth/unauthorized-domain') {
