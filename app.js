@@ -97,9 +97,16 @@ function checkAuthGate() {
       try {
         state.currentUser = JSON.parse(savedUser);
       } catch (e) {
-        state.currentUser = { email: 'admin@consorciocrm.com', name: 'Administrador' };
+        state.currentUser = { email: 'admin@consorciocrm.com', name: 'Administrador', uid: 'admin_master' };
       }
     }
+
+    // Carregar dados exclusivos da conta logada
+    loadGoalConfigs();
+    checkAndResetDailyGoals();
+    loadLeads();
+    renderGoals();
+
     if (gate) gate.style.display = 'none';
     if (app) app.style.display = 'flex';
     renderUserHeader();
@@ -1613,7 +1620,7 @@ function syncLeadsFromFirestore(userId) {
     });
 
     state.leads = cloudLeads;
-    localStorage.setItem(STORAGE_KEYS.LEADS, JSON.stringify(state.leads));
+    localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
     renderFollowups();
     renderKanban();
     renderOrigemDropdowns();
@@ -1635,6 +1642,8 @@ function syncGoalsFromFirestore(userId) {
       const data = docSnap.data();
       if (data.goalConfigs) state.goalConfigs = data.goalConfigs;
       if (data.goals) state.goals = data.goals;
+      localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOALS), JSON.stringify(state.goals));
+      localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOAL_CONFIGS), JSON.stringify(state.goalConfigs));
       renderGoals();
       renderOrigemDropdowns();
     }
