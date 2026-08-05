@@ -105,9 +105,18 @@ async function initFirebaseSDK() {
     if (typeof window.setupFirebaseAuthListener === 'function') {
       window.setupFirebaseAuthListener();
     }
+    return window.FirebaseService;
   } catch (error) {
     console.warn('⚠️ Não foi possível conectar ao Firebase com as chaves fornecidas.', error);
+    return null;
   }
 }
 
-initFirebaseSDK();
+window.firebaseInitPromise = initFirebaseSDK();
+
+window.ensureFirebaseReady = async function() {
+  if (window.firebaseInitPromise) {
+    await window.firebaseInitPromise;
+  }
+  return window.FirebaseService;
+};

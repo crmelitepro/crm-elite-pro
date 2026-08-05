@@ -1468,10 +1468,14 @@ async function handleAuthSubmit(e) {
     return;
   }
 
+  if (typeof window.ensureFirebaseReady === 'function') {
+    await window.ensureFirebaseReady();
+  }
+
   const { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = window.FirebaseService || {};
 
   if (!auth) {
-    alert('O serviço de autenticação do Firebase ainda não foi inicializado.');
+    alert('O serviço de autenticação do Firebase ainda está inicializando. Aguarde 2 segundos e tente novamente.');
     return;
   }
 
@@ -1495,22 +1499,32 @@ async function handleAuthSubmit(e) {
       msg = 'Este e-mail já está cadastrado!';
     } else if (error.code === 'auth/weak-password') {
       msg = 'A senha deve ter pelo menos 6 caracteres!';
+    } else if (error.code === 'auth/unauthorized-domain') {
+      msg = 'Domínio não autorizado no Firebase! Adicione "crm-elite-pro.vercel.app" na aba Authentication -> Settings -> Authorized Domains no console do Firebase.';
     }
     alert(msg);
   }
 }
 
 async function handleGoogleSignIn() {
+  if (typeof window.ensureFirebaseReady === 'function') {
+    await window.ensureFirebaseReady();
+  }
+  
   const { auth, googleProvider, signInWithPopup } = window.FirebaseService || {};
   if (!auth) {
-    alert('Firebase Service indisponível.');
+    alert('O serviço do Firebase ainda está conectando. Aguarde 2 segundos e clique novamente.');
     return;
   }
   try {
     await signInWithPopup(auth, googleProvider);
   } catch (error) {
     console.error('Erro ao entrar com Google:', error);
-    alert('Não foi possível concluir o login com o Google.');
+    if (error.code === 'auth/unauthorized-domain') {
+      alert('Domínio não autorizado no Firebase!\n\nAcesse o Console do Firebase ➔ Authentication ➔ Settings ➔ Authorized Domains e adicione "crm-elite-pro.vercel.app".');
+    } else {
+      alert('Não foi possível concluir o login com o Google. (' + (error.message || error.code) + ')');
+    }
   }
 }
 
