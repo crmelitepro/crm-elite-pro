@@ -18,8 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260805_21">
-  <script type="module" src="firebase-service.js?v=20260805_21"></script>
+  <link rel="stylesheet" href="styles.css?v=20260805_22">
+  <script type="module" src="firebase-service.js?v=20260805_22"></script>
 </head>
 <body>
   <!-- ================= TELA DE LOGIN OBRIGATÓRIA (GATE) ================= -->
@@ -231,6 +231,11 @@
         <div class="sidebar-section">
           <label class="sidebar-label">Opções & Sistema</label>
           <div class="sidebar-controls">
+            <button id="btn-sidebar-generate-invite" class="sidebar-control-btn" onclick="closeSidebarDrawer(); openGenerateInviteModal();">
+              <span>🎟️</span>
+              <span>Convidar Colaborador (Link 72h)</span>
+            </button>
+
             <button class="sidebar-control-btn" onclick="toggleTheme()">
               <span id="theme-toggle-icon">🌙</span>
               <span>Alternar Tema (Claro/Escuro)</span>
@@ -1204,9 +1209,132 @@
     </div>
   </div>
 
+  <!-- Modal 7: Gerar Convite para Novo Colaborador (Token UUID 72h) -->
+  <div id="modal-generate-invite" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3>🎟️ Gerar Convite de Acesso (Link 72h)</h3>
+        <button class="modal-close-btn" onclick="closeGenerateInviteModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          Selecione o cargo e a estrutura do novo membro. O sistema gerará um <strong>link único tokenizado com validade de 72 horas</strong>.
+        </p>
+
+        <form id="form-generate-invite" onsubmit="handleGenerateInviteSubmit(event)">
+          <div class="form-group">
+            <label for="invite-target-role">Cargo Destino *</label>
+            <select id="invite-target-role" required class="sidebar-select" style="width: 100%; padding: 0.7rem;">
+              <!-- Preenchido dinamicamente com base na hierarquia do usuario logado -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="invite-target-loja">Loja Destino *</label>
+            <select id="invite-target-loja" required class="sidebar-select" style="width: 100%; padding: 0.7rem;">
+              <option value="loja-sp-1">Ademicon - Loja Matriz São Paulo</option>
+              <option value="loja-rp-1">Ademicon - Loja Ribeirão Preto</option>
+              <option value="loja-ctba-1">Ademicon - Loja Curitiba</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="invite-target-equipe">Equipe Destino *</label>
+            <select id="invite-target-equipe" required class="sidebar-select" style="width: 100%; padding: 0.7rem;">
+              <option value="eq-alpha">Equipe Alpha (Sup. Carlos Eduardo)</option>
+              <option value="eq-braves">Equipe Braves (Sup. Mariana Costa)</option>
+              <option value="eq-summit">Equipe Summit (Sup. Felipe Rocha)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; font-weight: 700; margin-top: 0.5rem;">
+            ⚡ Gerar Link de Convite (72h)
+          </button>
+        </form>
+
+        <!-- Container do Link Gerado -->
+        <div id="invite-link-result" style="display: none; margin-top: 1.25rem; padding: 1rem; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-md);">
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--accent-emerald); display: block; margin-bottom: 0.4rem;">
+            ✅ Link de Convite Gerado com Sucesso! (Expira em 72h)
+          </span>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="text" id="generated-invite-url" readonly style="flex: 1; padding: 0.6rem; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px;">
+            <button class="btn btn-primary small" onclick="copyGeneratedInviteLink()">📋 Copiar</button>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; display: block;">
+            Envie este link para o colaborador se cadastrar.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 8: Onboarding de Primeiro Cadastro (Obrigatório / Não Fechável) -->
+  <div id="modal-onboarding" class="modal-overlay mandatory">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, rgba(227,6,19,0.15), var(--bg-card));">
+        <h3>📝 Cadastro do Colaborador (Onboarding)</h3>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Seu convite foi validado! Preencha suas informações pessoais para liberar o seu acesso ao CRM.
+        </p>
+
+        <!-- Badges de Informações Pré-Preenchidas e Bloqueadas do Convite -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; background: rgba(255,255,255,0.03); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 1.25rem; font-size: 0.8rem;">
+          <div><span style="color: var(--text-muted); display: block;">E-mail:</span><strong id="onboarding-lock-email">--</strong></div>
+          <div><span style="color: var(--text-muted); display: block;">Cargo:</span><strong id="onboarding-lock-cargo">--</strong></div>
+          <div><span style="color: var(--text-muted); display: block;">Loja:</span><strong id="onboarding-lock-loja">--</strong></div>
+          <div><span style="color: var(--text-muted); display: block;">Equipe:</span><strong id="onboarding-lock-equipe">--</strong></div>
+        </div>
+
+        <form id="form-onboarding" onsubmit="handleOnboardingSubmit(event)">
+          <div class="form-group">
+            <label for="onboarding-name">Nome Completo *</label>
+            <input type="text" id="onboarding-name" required placeholder="Digite seu nome completo de trabalho">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="onboarding-cpf">CPF (11 dígitos) *</label>
+              <input type="text" id="onboarding-cpf" required placeholder="000.000.000-00" oninput="maskCPF(this)">
+            </div>
+            <div class="form-group">
+              <label for="onboarding-dob">Data de Nascimento *</label>
+              <input type="date" id="onboarding-dob" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="onboarding-phone">Telefone / WhatsApp *</label>
+            <input type="tel" id="onboarding-phone" required placeholder="(11) 98765-4321" oninput="maskPhone(this)">
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.9rem; font-size: 1rem; font-weight: 800; margin-top: 0.75rem; justify-content: center;">
+            🚀 Concluir Cadastro & Acessar CRM
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 9: Acesso Negado / Sem Convite Válido -->
+  <div id="modal-access-denied" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px; text-align: center;">
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔒</div>
+      <h3 style="font-size: 1.3rem; margin-bottom: 0.5rem; color: var(--accent-rose);">Acesso Restrito</h3>
+      <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1.5rem;" id="access-denied-message">
+        Para se cadastrar no CRM Elite Pro, você precisa de um <strong>link de convite único</strong> enviado por um Licenciado, Gestor ou Supervisor da sua loja.
+      </p>
+      <button class="btn btn-primary" onclick="closeAccessDeniedModal()" style="width: 100%; justify-content: center; padding: 0.8rem; font-weight: 700;">
+        Entendido / Voltar
+      </button>
+    </div>
+  </div>
+
   <!-- Toast Notifications Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js?v=20260805_21"></script>
+  <script src="app.js?v=20260805_22"></script>
 </body>
 </html>

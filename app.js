@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initApp() {
   initTheme();
+  checkUrlInviteToken();
   checkAuthGate();
   updateCurrentDateDisplay();
   loadGoalConfigs();
@@ -1563,24 +1564,278 @@ async function handleAuthSubmit(e) {
   }
 }
 
+// ================= HIERARCHY, INVITE TOKENS & ONBOARDING ================= //
+
+function generateUUIDv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function maskCPF(input) {
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 11) v = v.substring(0, 11);
+  if (v.length > 9) {
+    input.value = `${v.substring(0,3)}.${v.substring(3,6)}.${v.substring(6,9)}-${v.substring(9)}`;
+  } else if (v.length > 6) {
+    input.value = `${v.substring(0,3)}.${v.substring(3,6)}.${v.substring(6)}`;
+  } else if (v.length > 3) {
+    input.value = `${v.substring(0,3)}.${v.substring(3)}`;
+  } else {
+    input.value = v;
+  }
+}
+
+function validateCPF(cpf) {
+  cpf = cpf.replace(/[^\d]+/g, '');
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+  let add = 0;
+  for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+  let rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(9))) return false;
+  add = 0;
+  for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+  rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(10))) return false;
+  return true;
+}
+
+let activeUrlToken = null;
+let activeInviteData = null;
+
+function checkUrlInviteToken() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (token) {
+    activeUrlToken = token.trim();
+  }
+}
+
+async function validateInviteToken(tokenStr) {
+  if (!tokenStr) return null;
+
+  // 1. Buscar nos convites armazenados no LocalStorage
+  const localTokens = JSON.parse(localStorage.getItem('crm_consorcio_invite_tokens') || '[]');
+  const localFound = localTokens.find(t => t.token === tokenStr);
+  if (localFound) {
+    if (localFound.usado) return { valid: false, reason: 'Este link de convite já foi utilizado.' };
+    if (new Date(localFound.expiraEm) < new Date()) return { valid: false, reason: 'Este link de convite expirou (validade 72h).' };
+    return { valid: true, data: localFound };
+  }
+
+  // 2. Buscar nos convites salvos no Firestore
+  if (window.FirebaseService && window.FirebaseService.db) {
+    const { db, collection, getDocs } = window.FirebaseService;
+    try {
+      const snap = await getDocs(collection(db, 'invite_tokens'));
+      let remoteFound = null;
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.token === tokenStr) remoteFound = d;
+      });
+
+      if (remoteFound) {
+        if (remoteFound.usado) return { valid: false, reason: 'Este link de convite já foi utilizado.' };
+        if (new Date(remoteFound.expiraEm) < new Date()) return { valid: false, reason: 'Este link de convite expirou (validade 72h).' };
+        return { valid: true, data: remoteFound };
+      }
+    } catch (e) {
+      console.warn('Erro ao consultar tokens no Firestore:', e);
+    }
+  }
+
+  return { valid: false, reason: 'Link de convite inválido ou inexistente.' };
+}
+
+function openGenerateInviteModal() {
+  const currentRole = state.currentRole || 'owner';
+  
+  if (currentRole === 'consultant') {
+    alert('❌ Consultores não possuem permissão para gerar links de convite.');
+    return;
+  }
+
+  const roleSelect = document.getElementById('invite-target-role');
+  if (roleSelect) {
+    let options = '';
+    if (currentRole === 'owner') {
+      options = `
+        <option value="gestor">💼 Gestor Comercial</option>
+        <option value="supervisor">👔 Supervisor de Vendas</option>
+        <option value="consultant" selected>👤 Consultor de Vendas</option>
+      `;
+    } else if (currentRole === 'manager') {
+      options = `
+        <option value="supervisor">👔 Supervisor de Vendas</option>
+        <option value="consultant" selected>👤 Consultor de Vendas</option>
+      `;
+    } else if (currentRole === 'supervisor') {
+      options = `
+        <option value="consultant" selected>👤 Consultor de Vendas</option>
+      `;
+    }
+    roleSelect.innerHTML = options;
+  }
+
+  document.getElementById('invite-link-result').style.display = 'none';
+  document.getElementById('modal-generate-invite').classList.add('active');
+}
+
+function closeGenerateInviteModal() {
+  document.getElementById('modal-generate-invite').classList.remove('active');
+}
+
+function closeAccessDeniedModal() {
+  document.getElementById('modal-access-denied').classList.remove('active');
+}
+
+async function handleGenerateInviteSubmit(e) {
+  e.preventDefault();
+  const cargo = document.getElementById('invite-target-role').value;
+  const lojaId = document.getElementById('invite-target-loja').value;
+  const equipeId = document.getElementById('invite-target-equipe').value;
+
+  const token = generateUUIDv4();
+  const expiraEm = new Date(Date.now() + 72 * 3600 * 1000).toISOString(); // 72h
+  const u = state.currentUser || { uid: 'admin_master', email: 'admin@consorciocrm.com' };
+
+  const inviteData = {
+    token,
+    cargoDestino: cargo,
+    lojaId,
+    equipeId,
+    criadoPor: u.uid || u.email,
+    expiraEm,
+    usado: false,
+    createdAt: new Date().toISOString()
+  };
+
+  const localTokens = JSON.parse(localStorage.getItem('crm_consorcio_invite_tokens') || '[]');
+  localTokens.push(inviteData);
+  localStorage.setItem('crm_consorcio_invite_tokens', JSON.stringify(localTokens));
+
+  if (window.FirebaseService && window.FirebaseService.db) {
+    const { db, doc, setDoc } = window.FirebaseService;
+    try {
+      await setDoc(doc(db, 'invite_tokens', token), inviteData);
+    } catch (err) {
+      console.warn('Erro ao salvar token no Firestore:', err);
+    }
+  }
+
+  const baseUrl = window.location.origin + window.location.pathname;
+  const inviteUrl = `${baseUrl}?token=${token}`;
+
+  const resultBox = document.getElementById('invite-link-result');
+  const urlInput = document.getElementById('generated-invite-url');
+  if (urlInput) urlInput.value = inviteUrl;
+  if (resultBox) resultBox.style.display = 'block';
+
+  showToast('🎟️ Link de convite tokenizado (72h) gerado com sucesso!', 'success');
+}
+
+function copyGeneratedInviteLink() {
+  const urlInput = document.getElementById('generated-invite-url');
+  if (urlInput) {
+    urlInput.select();
+    navigator.clipboard.writeText(urlInput.value);
+    showToast('📋 Link copiado para a área de transferência!', 'success');
+  }
+}
+
 async function handleGoogleSignIn() {
   if (typeof window.ensureFirebaseReady === 'function') {
     await window.ensureFirebaseReady();
   }
   
-  const { auth, googleProvider, signInWithPopup } = window.FirebaseService || {};
+  const { auth, googleProvider, signInWithPopup, db, doc, getDoc } = window.FirebaseService || {};
   if (!auth) {
     alert('O serviço do Firebase ainda está conectando. Aguarde 2 segundos e clique novamente.');
     return;
   }
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    if (result && result.user) {
-      state.currentUser = result.user;
-      localStorage.setItem('crm_consorcio_auth_logged', 'true');
-      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify({ email: result.user.email, name: result.user.displayName || result.user.email }));
-      checkAuthGate();
+    if (!result || !result.user) return;
+    const user = result.user;
+
+    // 1. Buscar se usuário já possui cadastro em `users`
+    let userRecord = null;
+
+    if (db && getDoc) {
+      try {
+        const uSnap = await getDoc(doc(db, 'users', user.uid));
+        if (uSnap.exists()) {
+          userRecord = uSnap.data();
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar cadastro no Firestore:', e);
+      }
     }
+
+    if (!userRecord) {
+      const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+      userRecord = localUsers.find(u => u.googleId === user.uid || u.email === user.email);
+    }
+
+    if (userRecord) {
+      const status = (userRecord.status || 'ativo').toLowerCase();
+      if (status === 'suspenso') {
+        alert('⛔ Sua conta está SUSPENSA. Entre em contato com seu gestor comercial.');
+        return;
+      }
+      if (status === 'inativo') {
+        alert('⛔ Sua conta foi DESATIVADA.');
+        return;
+      }
+      if (status === 'pendente') {
+        alert('⏳ Sua conta está AGUARDANDO APROVAÇÃO do administrador.');
+        return;
+      }
+
+      state.currentUser = { ...user, ...userRecord };
+      localStorage.setItem('crm_consorcio_auth_logged', 'true');
+      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+      checkAuthGate();
+      return;
+    }
+
+    // 2. Usuário novo: Verificar se existe token na URL
+    checkUrlInviteToken();
+    if (!activeUrlToken) {
+      document.getElementById('access-denied-message').innerHTML = `
+        O e-mail <strong>${escapeHtml(user.email)}</strong> não possui um cadastro ativo.<br><br>
+        Para se cadastrar no CRM Elite Pro, você precisa de um <strong>link de convite único</strong> gerado por um Licenciado, Gestor ou Supervisor da sua loja.
+      `;
+      document.getElementById('modal-access-denied').classList.add('active');
+      return;
+    }
+
+    const tokenResult = await validateInviteToken(activeUrlToken);
+    if (!tokenResult.valid) {
+      document.getElementById('access-denied-message').innerHTML = `
+        ${escapeHtml(tokenResult.reason)}<br><br>
+        Peça ao seu supervisor ou licenciado que gere um novo link de convite.
+      `;
+      document.getElementById('modal-access-denied').classList.add('active');
+      return;
+    }
+
+    // Token VÁLIDO: Abrir Onboarding
+    activeInviteData = tokenResult.data;
+    document.getElementById('onboarding-lock-email').textContent = user.email;
+    document.getElementById('onboarding-lock-cargo').textContent = (activeInviteData.cargoDestino || 'consultant').toUpperCase();
+    document.getElementById('onboarding-lock-loja').textContent = activeInviteData.lojaId || 'Matriz SP';
+    document.getElementById('onboarding-lock-equipe').textContent = activeInviteData.equipeId || 'Equipe Alpha';
+
+    const nameInput = document.getElementById('onboarding-name');
+    if (nameInput) nameInput.value = user.displayName || '';
+
+    document.getElementById('modal-onboarding').classList.add('active');
+
   } catch (error) {
     console.error('Erro ao entrar com Google:', error);
     if (error.code === 'auth/unauthorized-domain') {
@@ -1589,6 +1844,85 @@ async function handleGoogleSignIn() {
       alert('Não foi possível concluir o login com o Google. (' + (error.message || error.code) + ')');
     }
   }
+}
+
+async function handleOnboardingSubmit(e) {
+  e.preventDefault();
+  const nome = document.getElementById('onboarding-name').value.trim();
+  const cpf = document.getElementById('onboarding-cpf').value.trim();
+  const dob = document.getElementById('onboarding-dob').value;
+  const phone = document.getElementById('onboarding-phone').value.trim();
+
+  if (!validateCPF(cpf)) {
+    alert('⚠️ CPF Inválido! Verifique os dígitos digitados.');
+    return;
+  }
+
+  if (!activeInviteData) {
+    alert('Erro: Dados de convite não encontrados.');
+    return;
+  }
+
+  const u = window.FirebaseService?.auth?.currentUser;
+  const email = u ? u.email : (document.getElementById('onboarding-lock-email').textContent);
+  const uid = u ? u.uid : generateUUIDv4();
+
+  const userPayload = {
+    id: uid,
+    googleId: uid,
+    email,
+    nomeCompleto: nome,
+    dataNascimento: dob,
+    cpf,
+    telefone: phone,
+    fotoUrl: u ? u.photoURL : null,
+    cargo: activeInviteData.cargoDestino || 'consultant',
+    status: 'ativo',
+    lojaId: activeInviteData.lojaId || 'loja-matriz',
+    equipeId: activeInviteData.equipeId || 'eq-alpha',
+    convidadoPor: activeInviteData.criadoPor || 'admin_master',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  if (window.FirebaseService && window.FirebaseService.db) {
+    const { db, doc, setDoc } = window.FirebaseService;
+    try {
+      await setDoc(doc(db, 'users', uid), userPayload);
+      if (activeUrlToken) {
+        await setDoc(doc(db, 'invite_tokens', activeUrlToken), {
+          usado: true,
+          usadoPor: uid,
+          usadoEm: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao salvar onboarding no Firestore:', err);
+    }
+  }
+
+  const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  localUsers.push(userPayload);
+  localStorage.setItem('crm_consorcio_registered_users', JSON.stringify(localUsers));
+
+  if (activeUrlToken) {
+    const localTokens = JSON.parse(localStorage.getItem('crm_consorcio_invite_tokens') || '[]');
+    const tok = localTokens.find(t => t.token === activeUrlToken);
+    if (tok) {
+      tok.usado = true;
+      tok.usadoPor = uid;
+      tok.usadoEm = new Date().toISOString();
+      localStorage.setItem('crm_consorcio_invite_tokens', JSON.stringify(localTokens));
+    }
+  }
+
+  state.currentUser = { ...u, ...userPayload };
+  localStorage.setItem('crm_consorcio_auth_logged', 'true');
+  localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+
+  document.getElementById('modal-onboarding').classList.remove('active');
+  showToast('🎉 Onboarding concluído! Seu acesso está ativo.', 'success');
+  checkAuthGate();
 }
 
 async function handleLogout() {
