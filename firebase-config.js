@@ -45,7 +45,10 @@ async function initFirebaseSDK() {
   const customConfigStr = localStorage.getItem('crm_consorcio_firebase_config');
   if (customConfigStr) {
     try {
-      activeConfig = JSON.parse(customConfigStr);
+      const parsed = JSON.parse(customConfigStr);
+      if (parsed && parsed.apiKey && parsed.projectId) {
+        activeConfig = parsed;
+      }
     } catch (e) {
       console.warn('Erro ao ler chaves personalizadas. Usando padrão.');
     }
