@@ -2252,25 +2252,11 @@ function exitInspectionMode() {
 
 // ================= TELA 7: PERFIL & MINHA CONTA ================= //
 
-async function fetchAndEnrichUserProfile(user) {
+function enrichUserProfileSync(user) {
   if (!user) return null;
 
   const uid = user.uid || user.id || '';
   const email = (user.email || '').toLowerCase();
-
-  let firestoreData = null;
-
-  if (window.FirebaseService && window.FirebaseService.db && uid) {
-    try {
-      const { db, doc, getDoc } = window.FirebaseService;
-      const snap = await getDoc(doc(db, 'users', uid));
-      if (snap.exists()) {
-        firestoreData = snap.data();
-      }
-    } catch (err) {
-      console.warn('Erro ao carregar dados do usuário no Firestore:', err);
-    }
-  }
 
   const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
   const localData = localUsers.find(u => 
@@ -2280,18 +2266,42 @@ async function fetchAndEnrichUserProfile(user) {
 
   const enriched = {
     ...user,
-    ...(localData || {}),
-    ...(firestoreData || {})
+    ...(localData || {})
   };
 
-  if (!enriched.nomeCompleto) enriched.nomeCompleto = user.displayName || user.name || user.email;
+  if (!enriched.nomeCompleto) enriched.nomeCompleto = user.displayName || user.name || user.email || 'Consultor';
   if (!enriched.cpf && enriched.cpfRaw) enriched.cpf = enriched.cpfRaw;
   if (!enriched.dataNascimento && enriched.dob) enriched.dataNascimento = enriched.dob;
 
   state.currentUser = enriched;
   localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(enriched));
-
   return enriched;
+}
+
+async function fetchAndEnrichUserProfile(user) {
+  if (!user) return null;
+
+  const enrichedSync = enrichUserProfileSync(user);
+  const uid = user.uid || user.id || '';
+
+  if (window.FirebaseService && window.FirebaseService.db && uid) {
+    try {
+      const { db, doc, getDoc } = window.FirebaseService;
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (snap.exists()) {
+        const firestoreData = snap.data();
+        state.currentUser = {
+          ...state.currentUser,
+          ...firestoreData
+        };
+        localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar dados do usuário no Firestore:', err);
+    }
+  }
+
+  return state.currentUser;
 }
 
 function formatCPFUnmasked(cpf) {
