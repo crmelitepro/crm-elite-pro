@@ -1280,12 +1280,15 @@ function cancelMandatoryDate() {
 function openNewLeadModal() {
   document.getElementById('modal-lead-title').textContent = 'Cadastrar Novo Lead';
   document.getElementById('lead-id').value = '';
-  document.getElementById('form-lead').reset();
+  document.getElementById('form-lead')?.reset();
 
-  // Set default date to today
   document.getElementById('lead-data').value = getTodayDateString();
 
-  document.getElementById('modal-lead').classList.add('active');
+  const modal = document.getElementById('modal-lead');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
 }
 
 function openLeadModal(leadId) {
@@ -1302,11 +1305,19 @@ function openLeadModal(leadId) {
   document.getElementById('lead-valor').value = lead.valorConsorcio || '';
   document.getElementById('lead-notas').value = lead.notas || '';
 
-  document.getElementById('modal-lead').classList.add('active');
+  const modal = document.getElementById('modal-lead');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
 }
 
 function closeLeadModal() {
-  document.getElementById('modal-lead').classList.remove('active');
+  const modal = document.getElementById('modal-lead');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function handleLeadSubmit(e) {
@@ -1321,11 +1332,18 @@ function handleLeadSubmit(e) {
   const valorConsorcio = Number(document.getElementById('lead-valor').value) || 0;
   const notas = document.getElementById('lead-notas').value.trim();
 
+  if (!nome || !telefone) {
+    alert('Preencha o nome do cliente e o telefone!');
+    return;
+  }
+
   // Check mandatory date rule if status is 1 or 6
   if ((status === 1 || status === 6) && !proximoContato) {
     alert('A data de próximo contato é OBRIGATÓRIA para Contato Captado e Stand-by!');
     return;
   }
+
+  const info = getConsultantInfo();
 
   if (id) {
     // Edit existing
@@ -1338,26 +1356,35 @@ function handleLeadSubmit(e) {
       lead.proximoContato = proximoContato;
       lead.valorConsorcio = valorConsorcio;
       lead.notas = notas;
+      lead.updatedAt = new Date().toISOString();
     }
     showToast(`Lead "${nome}" atualizado!`, 'success');
   } else {
     // Create new
     const newLead = {
-      id: 'lead-' + Date.now(),
+      id: 'crm_lead_' + Date.now(),
       nome,
       telefone,
       origem,
       status,
       proximoContato,
       valorConsorcio,
-      notas
+      notas,
+      createdAt: new Date().toISOString(),
+      consultantUid: info.consultantUid,
+      consultantEmail: info.consultantEmail,
+      consultantName: info.consultantName,
+      teamName: info.teamName
     };
-    state.leads.push(newLead);
+    state.leads.unshift(newLead);
     showToast(`Novo lead "${nome}" cadastrado com sucesso!`, 'success');
   }
 
   saveLeads();
   closeLeadModal();
+
+  document.getElementById('form-lead')?.reset();
+  document.getElementById('lead-id').value = '';
 }
 
 // ================= UTILITIES & HELPERS ================= //
