@@ -1147,32 +1147,55 @@ let draggedLeadId = null;
 
 function handleDragStart(e, leadId) {
   draggedLeadId = leadId;
-  e.target.classList.add('dragging');
-  e.dataTransfer.setData('text/plain', leadId);
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', leadId);
+  }
+  if (e.target && e.target.classList) {
+    e.target.classList.add('dragging');
+  }
 }
 
 function handleDragEnd(e) {
-  e.target.classList.remove('dragging');
+  if (e.target && e.target.classList) {
+    e.target.classList.remove('dragging');
+  }
+  document.querySelectorAll('.kanban-column').forEach(col => col.classList.remove('drag-over'));
   draggedLeadId = null;
 }
 
 function handleDragOver(e) {
   e.preventDefault();
-  const col = e.currentTarget;
-  col.classList.add('drag-over');
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move';
+  }
+  const col = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.kanban-column') : null);
+  if (col && col.classList) {
+    col.classList.add('drag-over');
+  }
 }
 
 function handleDragLeave(e) {
-  const col = e.currentTarget;
-  col.classList.remove('drag-over');
+  const col = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.kanban-column') : null);
+  if (col && col.classList) {
+    col.classList.remove('drag-over');
+  }
 }
 
 function handleDrop(e, targetStageId) {
   e.preventDefault();
-  const col = e.currentTarget;
-  col.classList.remove('drag-over');
+  const col = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.kanban-column') : null);
+  if (col && col.classList) {
+    col.classList.remove('drag-over');
+  }
 
-  const leadId = e.dataTransfer.getData('text/plain') || draggedLeadId;
+  let leadId = null;
+  if (e.dataTransfer) {
+    try {
+      leadId = e.dataTransfer.getData('text/plain');
+    } catch (err) {}
+  }
+  if (!leadId) leadId = draggedLeadId;
   if (!leadId) return;
 
   const lead = state.leads.find(l => l.id === leadId);
@@ -1180,8 +1203,7 @@ function handleDrop(e, targetStageId) {
 
   const currentStageId = lead.status;
 
-  // CHECK AUTOMATION RULE:
-  // Se for arrastado para 'Contato Captado' (1) ou 'Stand-by (Pensando)' (6), DISPARAR POP-UP OBRIGATÓRIO!
+  // REGRA: Se for arrastado para 'Contato Captado' (1) ou 'Stand-by' (6), dispara modal obrigatorio de data
   if (targetStageId === 1 || targetStageId === 6) {
     state.pendingMove = {
       leadId: lead.id,
@@ -1190,9 +1212,10 @@ function handleDrop(e, targetStageId) {
     };
     showMandatoryDateModal(lead, targetStageId);
   } else {
-    // Movimentação direta sem obrigatoriedade de popup
     lead.status = targetStageId;
+    lead.columnId = 'stage-' + targetStageId;
     saveLeads();
+    renderKanban();
     showToast(`Lead "${lead.nome}" movido para "${getStageName(targetStageId)}"`, 'success');
   }
 }
@@ -1385,6 +1408,9 @@ function handleLeadSubmit(e) {
 
   document.getElementById('form-lead')?.reset();
   document.getElementById('lead-id').value = '';
+
+  switchTab('kanban');
+  renderKanban();
 }
 
 // ================= UTILITIES & HELPERS ================= //
