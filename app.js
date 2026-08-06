@@ -1989,6 +1989,14 @@ async function handleOnboardingSubmit(e) {
   localStorage.setItem('crm_consorcio_auth_logged', 'true');
   localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
 
+  // Limpar o token de convite da URL e resetar o portal para login tradicional
+  activeUrlToken = null;
+  activeInviteData = null;
+  window.history.replaceState({}, document.title, window.location.pathname);
+  const banner = document.getElementById('gate-invite-banner');
+  if (banner) banner.style.display = 'none';
+  setPortalAuthMode('login');
+
   document.getElementById('modal-onboarding').classList.remove('active');
   showToast('🎉 Onboarding concluído! Seu acesso está ativo.', 'success');
   checkAuthGate();
@@ -1999,6 +2007,14 @@ async function handleLogout() {
     if (unsubscribeLeadsSnapshot) unsubscribeLeadsSnapshot();
     if (unsubscribeGoalsSnapshot) unsubscribeGoalsSnapshot();
     
+    // Limpar o token de convite da URL e resetar o banner
+    activeUrlToken = null;
+    activeInviteData = null;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    const banner = document.getElementById('gate-invite-banner');
+    if (banner) banner.style.display = 'none';
+    setPortalAuthMode('login');
+
     localStorage.removeItem('crm_consorcio_auth_logged');
     localStorage.removeItem('crm_consorcio_auth_user');
     state.currentUser = null;
