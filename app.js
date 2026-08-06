@@ -2294,6 +2294,15 @@ async function fetchAndEnrichUserProfile(user) {
   return enriched;
 }
 
+function formatCPFUnmasked(cpf) {
+  if (!cpf) return '';
+  const clean = String(cpf).replace(/\D/g, '');
+  if (clean.length === 11) {
+    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+  return cpf;
+}
+
 function renderProfileView() {
   const u = state.currentUser;
   if (!u) return;
@@ -2302,8 +2311,10 @@ function renderProfileView() {
   const email = u.email || 'email@consorciocrm.com';
   const phone = u.telefone || u.phone || '';
   const photo = u.photoURL || u.fotoUrl || '';
-  const cpf = u.cpf ? maskCPF(u.cpf) : (u.cpfRaw ? maskCPF(u.cpfRaw) : 'Não cadastrado');
-  const dob = u.dataNascimento ? formatDate(u.dataNascimento) : 'Não informada';
+  const rawCpf = u.cpf || u.cpfRaw || '';
+  const cpf = rawCpf ? formatCPFUnmasked(rawCpf) : 'Não cadastrado';
+  const rawDob = u.dataNascimento || u.dob || '';
+  const dob = rawDob ? formatDate(rawDob) : 'Não informada';
   const cargo = (u.cargo || u.role || 'consultant').toUpperCase();
   const loja = u.lojaId || u.loja || 'Loja Matriz SP';
   const equipe = u.equipeId || u.equipe || 'Equipe Alpha';
@@ -2322,7 +2333,7 @@ function renderProfileView() {
   if (equipeBadge) equipeBadge.textContent = equipe;
 
   if (photo && avatarDisplay) {
-    avatarDisplay.innerHTML = `<img src="${escapeHtml(photo)}" alt="${escapeHtml(displayName)}">`;
+    avatarDisplay.innerHTML = `<img src="${photo}" alt="${escapeHtml(displayName)}" style="width:100%; height:100%; object-fit:cover;">`;
   } else if (avatarDisplay) {
     const initial = (displayName.charAt(0) || 'U').toUpperCase();
     avatarDisplay.innerHTML = `<span id="profile-avatar-initials">${initial}</span>`;
@@ -2380,11 +2391,27 @@ function handleProfilePhotoUpload(e) {
       state.currentUser.fotoUrl = base64Data;
       localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
 
-      if (window.FirebaseService && window.FirebaseService.db && state.currentUser.uid) {
+      // Sincronizar na lista local de usuários cadastrados
+      const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+      const uid = state.currentUser.uid || state.currentUser.id || '';
+      const email = (state.currentUser.email || '').toLowerCase();
+      const uIndex = localUsers.findIndex(u => 
+        (uid && (u.id === uid || u.googleId === uid)) ||
+        (email && u.email && u.email.toLowerCase() === email)
+      );
+
+      if (uIndex !== -1) {
+        localUsers[uIndex].fotoUrl = base64Data;
+        localUsers[uIndex].photoURL = base64Data;
+        localStorage.setItem('crm_consorcio_registered_users', JSON.stringify(localUsers));
+      }
+
+      if (window.FirebaseService && window.FirebaseService.db && uid) {
         const { db, doc, setDoc } = window.FirebaseService;
         try {
-          await setDoc(doc(db, 'users', state.currentUser.uid), {
+          await setDoc(doc(db, 'users', uid), {
             fotoUrl: base64Data,
+            photoURL: base64Data,
             updatedAt: new Date().toISOString()
           }, { merge: true });
         } catch (err) {
@@ -2395,7 +2422,7 @@ function handleProfilePhotoUpload(e) {
 
     renderProfileView();
     renderUserHeader();
-    showToast('📸 Foto de perfil atualizada com sucesso!', 'success');
+    showToast('📸 Foto de perfil salva e atualizada com sucesso!', 'success');
   };
   reader.readAsDataURL(file);
 }
@@ -2409,6 +2436,19 @@ function removeProfilePhoto() {
       delete state.currentUser.photoURL;
       delete state.currentUser.fotoUrl;
       localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+
+      const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+      const uid = state.currentUser.uid || state.currentUser.id || '';
+      const email = (state.currentUser.email || '').toLowerCase();
+      const uIndex = localUsers.findIndex(u => 
+        (uid && (u.id === uid || u.googleId === uid)) ||
+        (email && u.email && u.email.toLowerCase() === email)
+      );
+      if (uIndex !== -1) {
+        delete localUsers[uIndex].fotoUrl;
+        delete localUsers[uIndex].photoURL;
+        localStorage.setItem('crm_consorcio_registered_users', JSON.stringify(localUsers));
+      }
     }
 
     renderProfileView();
@@ -2421,7 +2461,7 @@ async function handleUpdateProfile(e) {
   e.preventDefault();
   const newName = document.getElementById('profile-edit-name').value.trim();
   const newPhone = document.getElementById('profile-edit-phone').value.trim();
-  const newPhoto = document.getElementById('profile-edit-photo').value.trim();
+  const newPhoto = document.getElementById('profile-edit-photo')?.value.trim() || '';
 
   if (!newName || !newPhone) {
     alert('Preencha o nome e o telefone!');
@@ -2440,13 +2480,52 @@ async function handleUpdateProfile(e) {
 
   localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
 
-  if (window.FirebaseService && window.FirebaseService.db && state.currentUser.uid) {
+  const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  const uid = state.currentUser.uid || state.currentUser.id || '';
+  const email = (state.currentUser.email || '').toLowerCase();
+
+  const uIndex = localUsers.findIndex(u => 
+    (uid && (u.id === uid || u.googleId === uid)) ||
+    (email && u.email && u.email.toLowerCase() === email)
+  );
+
+  if (uIndex !== -1) {
+    localUsers[uIndex] = {
+      ...localUsers[uIndex],
+      nomeCompleto: newName,
+      telefone: newPhone,
+      fotoUrl: newPhoto || localUsers[uIndex].fotoUrl,
+      photoURL: newPhoto || localUsers[uIndex].photoURL,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem('crm_consorcio_registered_users', JSON.stringify(localUsers));
+  } else {
+    localUsers.push({
+      id: uid || 'usr_' + Date.now(),
+      googleId: uid,
+      email: email,
+      nomeCompleto: newName,
+      telefone: newPhone,
+      cpf: state.currentUser.cpf || state.currentUser.cpfRaw || '',
+      dataNascimento: state.currentUser.dataNascimento || state.currentUser.dob || '',
+      cargo: state.currentUser.cargo || 'consultant',
+      lojaId: state.currentUser.lojaId || 'Loja Matriz SP',
+      equipeId: state.currentUser.equipeId || 'Equipe Alpha',
+      status: 'ativo',
+      fotoUrl: newPhoto || null,
+      updatedAt: new Date().toISOString()
+    });
+    localStorage.setItem('crm_consorcio_registered_users', JSON.stringify(localUsers));
+  }
+
+  if (window.FirebaseService && window.FirebaseService.db && uid) {
     const { db, doc, setDoc } = window.FirebaseService;
     try {
-      await setDoc(doc(db, 'users', state.currentUser.uid), {
+      await setDoc(doc(db, 'users', uid), {
         nomeCompleto: newName,
         telefone: newPhone,
         fotoUrl: newPhoto || null,
+        photoURL: newPhoto || null,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
@@ -2456,7 +2535,7 @@ async function handleUpdateProfile(e) {
 
   renderProfileView();
   renderUserHeader();
-  showToast('💾 Dados do perfil atualizados com sucesso!', 'success');
+  showToast('💾 Dados do perfil salvos com sucesso!', 'success');
 }
 
 async function handleChangePassword(e) {
