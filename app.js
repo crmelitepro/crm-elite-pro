@@ -102,14 +102,12 @@ function checkAuthGate() {
       }
     }
 
-    // Se o perfil atual no state carecer de campos como cpf/nomeCompleto, resgata dos registros locais
-    if (state.currentUser && (!state.currentUser.cpf || !state.currentUser.nomeCompleto)) {
-      const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
-      const found = localUsers.find(u => u.id === state.currentUser.uid || u.googleId === state.currentUser.uid || u.email === state.currentUser.email);
-      if (found) {
-        state.currentUser = { ...found, ...state.currentUser };
-        localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
-      }
+    // Enriquecer dados do perfil com registros do Firestore/LocalStorage (CPF, Telefone, Data Nasc)
+    if (state.currentUser) {
+      fetchAndEnrichUserProfile(state.currentUser).then(() => {
+        renderUserHeader();
+        if (state.activeTab === 'profile') renderProfileView();
+      });
     }
 
     // Sincronizar o cargo do usuário autenticado no estado local
@@ -2254,19 +2252,61 @@ function exitInspectionMode() {
 
 // ================= TELA 7: PERFIL & MINHA CONTA ================= //
 
+async function fetchAndEnrichUserProfile(user) {
+  if (!user) return null;
+
+  const uid = user.uid || user.id || '';
+  const email = (user.email || '').toLowerCase();
+
+  let firestoreData = null;
+
+  if (window.FirebaseService && window.FirebaseService.db && uid) {
+    try {
+      const { db, doc, getDoc } = window.FirebaseService;
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (snap.exists()) {
+        firestoreData = snap.data();
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar dados do usuário no Firestore:', err);
+    }
+  }
+
+  const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  const localData = localUsers.find(u => 
+    (uid && (u.id === uid || u.googleId === uid)) || 
+    (email && u.email && u.email.toLowerCase() === email)
+  );
+
+  const enriched = {
+    ...user,
+    ...(localData || {}),
+    ...(firestoreData || {})
+  };
+
+  if (!enriched.nomeCompleto) enriched.nomeCompleto = user.displayName || user.name || user.email;
+  if (!enriched.cpf && enriched.cpfRaw) enriched.cpf = enriched.cpfRaw;
+  if (!enriched.dataNascimento && enriched.dob) enriched.dataNascimento = enriched.dob;
+
+  state.currentUser = enriched;
+  localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(enriched));
+
+  return enriched;
+}
+
 function renderProfileView() {
   const u = state.currentUser;
   if (!u) return;
 
-  const displayName = u.displayName || u.nomeCompleto || u.name || u.email;
+  const displayName = u.nomeCompleto || u.displayName || u.name || u.email;
   const email = u.email || 'email@consorciocrm.com';
   const phone = u.telefone || u.phone || '';
   const photo = u.photoURL || u.fotoUrl || '';
-  const cpf = u.cpf || 'Não cadastrado';
+  const cpf = u.cpf ? maskCPF(u.cpf) : (u.cpfRaw ? maskCPF(u.cpfRaw) : 'Não cadastrado');
   const dob = u.dataNascimento ? formatDate(u.dataNascimento) : 'Não informada';
   const cargo = (u.cargo || u.role || 'consultant').toUpperCase();
-  const loja = u.lojaId || 'Loja Matriz SP';
-  const equipe = u.equipeId || 'Equipe Alpha';
+  const loja = u.lojaId || u.loja || 'Loja Matriz SP';
+  const equipe = u.equipeId || u.equipe || 'Equipe Alpha';
 
   const nameEl = document.getElementById('profile-display-name');
   const emailEl = document.getElementById('profile-display-email');
@@ -2274,7 +2314,6 @@ function renderProfileView() {
   const lojaBadge = document.getElementById('profile-badge-loja');
   const equipeBadge = document.getElementById('profile-badge-equipe');
   const avatarDisplay = document.getElementById('profile-avatar-display');
-  const initialsEl = document.getElementById('profile-avatar-initials');
 
   if (nameEl) nameEl.textContent = displayName;
   if (emailEl) emailEl.textContent = email;
@@ -2284,22 +2323,98 @@ function renderProfileView() {
 
   if (photo && avatarDisplay) {
     avatarDisplay.innerHTML = `<img src="${escapeHtml(photo)}" alt="${escapeHtml(displayName)}">`;
-  } else if (initialsEl && avatarDisplay) {
+  } else if (avatarDisplay) {
     const initial = (displayName.charAt(0) || 'U').toUpperCase();
-    avatarDisplay.innerHTML = `<span>${initial}</span>`;
+    avatarDisplay.innerHTML = `<span id="profile-avatar-initials">${initial}</span>`;
   }
 
   const inputName = document.getElementById('profile-edit-name');
+  const lockEmail = document.getElementById('profile-lock-email');
   const inputPhone = document.getElementById('profile-edit-phone');
   const inputPhoto = document.getElementById('profile-edit-photo');
   const lockCpf = document.getElementById('profile-lock-cpf');
   const lockDob = document.getElementById('profile-lock-dob');
+  const lockRole = document.getElementById('profile-lock-role');
+  const lockStore = document.getElementById('profile-lock-store');
+  const lockTeam = document.getElementById('profile-lock-team');
 
   if (inputName) inputName.value = displayName;
+  if (lockEmail) lockEmail.value = email;
   if (inputPhone) inputPhone.value = phone;
   if (inputPhoto) inputPhoto.value = photo;
   if (lockCpf) lockCpf.value = cpf;
   if (lockDob) lockDob.value = dob;
+  if (lockRole) lockRole.value = cargo;
+  if (lockStore) lockStore.value = loja;
+  if (lockTeam) lockTeam.value = equipe;
+}
+
+function triggerProfilePhotoUpload() {
+  const fileInput = document.getElementById('profile-file-input');
+  if (fileInput) fileInput.click();
+}
+
+function handleProfilePhotoUpload(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Selecione um arquivo de imagem válido (JPG, PNG, WebP).');
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('A imagem é muito grande. Escolha uma foto de até 5MB.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function(evt) {
+    const base64Data = evt.target.result;
+    
+    const photoInput = document.getElementById('profile-edit-photo');
+    if (photoInput) photoInput.value = base64Data;
+
+    if (state.currentUser) {
+      state.currentUser.photoURL = base64Data;
+      state.currentUser.fotoUrl = base64Data;
+      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+
+      if (window.FirebaseService && window.FirebaseService.db && state.currentUser.uid) {
+        const { db, doc, setDoc } = window.FirebaseService;
+        try {
+          await setDoc(doc(db, 'users', state.currentUser.uid), {
+            fotoUrl: base64Data,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (err) {
+          console.warn('Erro ao atualizar foto no Firestore:', err);
+        }
+      }
+    }
+
+    renderProfileView();
+    renderUserHeader();
+    showToast('📸 Foto de perfil atualizada com sucesso!', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeProfilePhoto() {
+  if (confirm('Deseja remover sua foto de perfil?')) {
+    const photoInput = document.getElementById('profile-edit-photo');
+    if (photoInput) photoInput.value = '';
+
+    if (state.currentUser) {
+      delete state.currentUser.photoURL;
+      delete state.currentUser.fotoUrl;
+      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+    }
+
+    renderProfileView();
+    renderUserHeader();
+    showToast('🗑️ Foto de perfil removida.', 'info');
+  }
 }
 
 async function handleUpdateProfile(e) {
