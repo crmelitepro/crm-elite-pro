@@ -307,11 +307,20 @@ function manualResetGoals() {
 
 function getConsultantInfo() {
   const u = state.currentUser;
+  const uid = u ? (u.uid || u.id || u.email || 'admin_master') : 'admin_master';
+  const email = u ? (u.email || 'admin@consorciocrm.com') : 'admin@consorciocrm.com';
+  const name = u ? (u.displayName || u.name || u.email || 'Administrador') : 'Administrador';
+  const team = u ? (u.team || u.teamName || 'Equipe Alpha') : 'Equipe Alpha';
+  const loja = u ? (u.lojaId || 'loja-matriz') : 'loja-matriz';
+  const equipe = u ? (u.equipeId || 'eq-alpha') : 'eq-alpha';
+
   return {
-    consultantUid: u ? (u.uid || u.email) : 'admin_master',
-    consultantEmail: u ? (u.email || 'admin@consorciocrm.com') : 'admin@consorciocrm.com',
-    consultantName: u ? (u.displayName || u.name || u.email) : 'Administrador',
-    teamName: u ? (u.team || 'Equipe Alpha') : 'Equipe Alpha'
+    consultantUid: uid,
+    consultantEmail: email,
+    consultantName: name,
+    teamName: team,
+    lojaId: loja,
+    equipeId: equipe
   };
 }
 
@@ -325,7 +334,7 @@ function saveGoalConfigs() {
     try {
       const info = getConsultantInfo();
       const todayStr = getTodayDateString();
-      const goalsRef = doc(db, 'users', state.currentUser.uid, 'config', 'goals');
+      const goalsRef = doc(db, 'users', info.consultantUid, 'config', 'goals');
       const storeGoalRef = doc(db, 'store_daily_goals', `${info.consultantUid}_${todayStr}`);
       const payload = { goalConfigs: state.goalConfigs, goals: state.goals, ...info, date: todayStr, updatedAt: new Date().toISOString() };
       
@@ -346,7 +355,7 @@ function saveGoals() {
     try {
       const info = getConsultantInfo();
       const todayStr = getTodayDateString();
-      const goalsRef = doc(db, 'users', state.currentUser.uid, 'config', 'goals');
+      const goalsRef = doc(db, 'users', info.consultantUid, 'config', 'goals');
       const storeGoalRef = doc(db, 'store_daily_goals', `${info.consultantUid}_${todayStr}`);
       const payload = { goalConfigs: state.goalConfigs, goals: state.goals, ...info, date: todayStr, updatedAt: new Date().toISOString() };
 
@@ -397,12 +406,13 @@ function saveLeads() {
   renderFollowups();
   renderKanban();
   renderOrigemDropdowns();
+  renderReportsView();
 
   if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
     const { db, doc, setDoc } = window.FirebaseService;
     state.leads.forEach(async (lead) => {
       try {
-        const leadRef = doc(db, 'users', state.currentUser.uid, 'leads', lead.id);
+        const leadRef = doc(db, 'users', info.consultantUid, 'leads', lead.id);
         const storeLeadRef = doc(db, 'store_leads', lead.id);
         const payload = { ...lead, ...info, updatedAt: new Date().toISOString() };
         
@@ -1538,8 +1548,15 @@ function setupFirebaseAuthListener() {
       localStorage.setItem('crm_consorcio_auth_logged', 'true');
       localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
 
+      loadGoalConfigs();
+      checkAndResetDailyGoals();
+      loadLeads();
       checkAuthGate();
       renderUserHeader();
+      renderGoals();
+      renderFollowups();
+      renderKanban();
+
       showToast(`🔑 Conectado como ${user.email}`, 'success');
       syncLeadsFromFirestore(user.uid);
       syncGoalsFromFirestore(user.uid);
@@ -2090,7 +2107,7 @@ function handleSaveFirebaseConfig(e) {
 // Sincronização em Nuvem Firestore (Leads & Metas)
 function syncLeadsFromFirestore(userId) {
   const { db, collection, onSnapshot } = window.FirebaseService || {};
-  if (!db) return;
+  if (!db || !userId) return;
 
   const leadsCol = collection(db, 'users', userId, 'leads');
 
@@ -2100,22 +2117,36 @@ function syncLeadsFromFirestore(userId) {
     const demoNames = ['carlos eduardo oliveira', 'mariana souza', 'fernando mendes', 'patricia lima', 'rodrigo alves', 'juliana barbosa'];
     const demoIds = ['lead-1', 'lead-2', 'lead-3', 'lead-4', 'lead-5', 'lead-6'];
 
-    const cloudLeads = [];
+    const cloudLeadsMap = new Map();
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       const leadId = docSnap.id;
       const leadName = (data.nome || '').toLowerCase().trim();
 
       if (!demoIds.includes(leadId) && !demoNames.includes(leadName)) {
-        cloudLeads.push({ id: leadId, ...data });
+        cloudLeadsMap.set(leadId, { id: leadId, ...data });
       }
     });
 
-    state.leads = cloudLeads;
+    // Mesclar leads locais existentes que ainda nao foram para a nuvem
+    const mergedLeads = [...cloudLeadsMap.values()];
+    state.leads.forEach(localLead => {
+      if (localLead && localLead.id && !cloudLeadsMap.has(localLead.id)) {
+        mergedLeads.push(localLead);
+      }
+    });
+
+    state.leads = mergedLeads;
     localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
-    renderFollowups();
-    renderKanban();
-    renderOrigemDropdowns();
+
+    if (mergedLeads.length > cloudLeadsMap.size) {
+      saveLeads();
+    } else {
+      renderFollowups();
+      renderKanban();
+      renderOrigemDropdowns();
+      renderReportsView();
+    }
   }, (err) => {
     console.warn('Erro ao escutar Firestore Leads:', err);
   });
@@ -2123,7 +2154,7 @@ function syncLeadsFromFirestore(userId) {
 
 function syncGoalsFromFirestore(userId) {
   const { db, doc, onSnapshot } = window.FirebaseService || {};
-  if (!db) return;
+  if (!db || !userId) return;
 
   const goalsDoc = doc(db, 'users', userId, 'config', 'goals');
 
@@ -2133,11 +2164,17 @@ function syncGoalsFromFirestore(userId) {
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (data.goalConfigs) state.goalConfigs = data.goalConfigs;
-      if (data.goals) state.goals = data.goals;
+      if (data.goals) {
+        state.goals = { ...state.goals, ...data.goals };
+      }
       localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOALS), JSON.stringify(state.goals));
       localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOAL_CONFIGS), JSON.stringify(state.goalConfigs));
       renderGoals();
       renderOrigemDropdowns();
+      renderReportsView();
+    } else {
+      saveGoals();
+      saveGoalConfigs();
     }
   }, (err) => {
     console.warn('Erro ao escutar Firestore Goals:', err);
