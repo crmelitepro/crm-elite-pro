@@ -361,10 +361,13 @@ function saveGoals() {
 function loadLeads() {
   const data = localStorage.getItem(getUserStorageKey(STORAGE_KEYS.LEADS));
   if (data) {
-    state.leads = JSON.parse(data);
+    try {
+      state.leads = JSON.parse(data);
+    } catch (e) {
+      state.leads = [];
+    }
   } else {
-    state.leads = getDemoLeads();
-    saveLeads();
+    state.leads = [];
   }
 }
 
@@ -399,81 +402,6 @@ function saveLeads() {
       }
     });
   }
-}
-
-// Demo leads for instant rich experience
-function getDemoLeads() {
-  const today = getTodayDateString();
-  const pastDate = new Date();
-  pastDate.setDate(pastDate.getDate() - 2);
-  const pastStr = pastDate.toISOString().split('T')[0];
-
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 3);
-  const futureStr = futureDate.toISOString().split('T')[0];
-
-  return [
-    {
-      id: 'lead-1',
-      nome: 'Carlos Eduardo Oliveira',
-      telefone: '(11) 98765-4321',
-      origem: 'Instagram',
-      status: 1,
-      notas: 'Interessado em cota imobiliária de R$ 300k. Mandou mensagem no direct.',
-      proximoContato: today,
-      valorConsorcio: 300000
-    },
-    {
-      id: 'lead-2',
-      nome: 'Mariana Souza',
-      telefone: '(21) 99123-4567',
-      origem: 'LinkedIn',
-      status: 2,
-      notas: 'Empresária querendo renovar frota via consórcio de automóveis.',
-      proximoContato: pastStr,
-      valorConsorcio: 150000
-    },
-    {
-      id: 'lead-3',
-      nome: 'Fernando Mendes',
-      telefone: '(31) 98888-7777',
-      origem: 'Indicação',
-      status: 3,
-      notas: 'Simulação enviada de R$ 500k. Analisando capacidade de lance.',
-      proximoContato: today,
-      valorConsorcio: 500000
-    },
-    {
-      id: 'lead-4',
-      nome: 'Patricia Lima',
-      telefone: '(11) 97654-3210',
-      origem: 'WhatsApp',
-      status: 4,
-      notas: 'Apresentação realizada. Gostou do grupo com taxa reduzida.',
-      proximoContato: futureStr,
-      valorConsorcio: 200000
-    },
-    {
-      id: 'lead-5',
-      nome: 'Rodrigo Alves',
-      telefone: '(41) 99911-2233',
-      origem: 'Instagram',
-      status: 6,
-      notas: 'Pediu para retornar em alguns dias pois está aguardando fechar um contrato.',
-      proximoContato: today,
-      valorConsorcio: 400000
-    },
-    {
-      id: 'lead-6',
-      nome: 'Juliana Barbosa',
-      telefone: '(19) 98112-3344',
-      origem: 'Indicação',
-      status: 7,
-      notas: 'Venda Fechada! Cota de R$ 250k contemplada por lance livre.',
-      proximoContato: futureStr,
-      valorConsorcio: 250000
-    }
-  ];
 }
 
 function resetDemoData() {
@@ -2613,33 +2541,45 @@ function renderSupervisorView() {
   if (!tbody) return;
 
   const registeredUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  const currentUserTeam = state.currentUser?.equipeId || 'Equipe Alpha';
   
-  let teamConsultants = [
-    { id: 'c1', name: 'Lucas Silva', done: 28, target: 30, pct: 93, leads: 8, sales: 'R$ 450.000', status: '⚡ Em Alta', class: 'emerald' },
-    { id: 'c2', name: 'Mariana Santos', done: 25, target: 30, pct: 83, leads: 12, sales: 'R$ 520.000', status: '⚡ Ativa', class: 'emerald' },
-    { id: 'c3', name: 'Rafael Oliveira', done: 18, target: 30, pct: 60, leads: 6, sales: 'R$ 320.000', status: '⚠️ Meta Pendente', class: 'amber' },
-    { id: 'c4', name: 'Beatriz Lima', done: 30, target: 30, pct: 100, leads: 9, sales: 'R$ 380.000', status: '🔥 Meta Concluída', class: 'emerald' },
-    { id: 'c5', name: 'Felipe Costa', done: 27, target: 30, pct: 90, leads: 7, sales: 'R$ 180.000', status: '⚡ Ativo', class: 'emerald' }
-  ];
-
-  // Anexar consultores reais cadastrados via convite
-  registeredUsers.forEach((u, idx) => {
-    if (u.cargo === 'consultant' || u.cargo === 'consultor') {
-      const userLeads = state.leads.filter(l => l.consultantUid === u.id || l.consultantEmail === u.email);
-      const totalSalesVal = userLeads.filter(l => l.status === 7).reduce((acc, l) => acc + (Number(l.valorConsorcio) || 0), 0);
-      teamConsultants.unshift({
-        id: u.id,
-        name: u.nomeCompleto || u.email,
-        done: userLeads.length > 0 ? Math.min(30, userLeads.length * 4) : 10,
-        target: 30,
-        pct: userLeads.length > 0 ? Math.min(100, userLeads.length * 15) : 33,
-        leads: userLeads.length,
-        sales: `R$ ${totalSalesVal.toLocaleString('pt-BR')}`,
-        status: userLeads.length > 0 ? '⚡ Ativo' : '🆕 Novo Convidado',
-        class: 'emerald'
-      });
-    }
+  const teamConsultants = registeredUsers.filter(u => 
+    (u.cargo === 'consultant' || u.cargo === 'consultor') &&
+    (!u.equipeId || u.equipeId === currentUserTeam)
+  ).map(u => {
+    const userLeads = state.leads.filter(l => l.consultantUid === u.id || l.consultantEmail === u.email);
+    const totalSalesVal = userLeads.filter(l => l.status === 7).reduce((acc, l) => acc + (Number(l.valorConsorcio) || 0), 0);
+    const completedDaily = userLeads.filter(l => l.proximoContato === getTodayDateString()).length;
+    return {
+      id: u.id,
+      name: u.nomeCompleto || u.email,
+      done: completedDaily,
+      target: 30,
+      pct: Math.min(100, Math.round((completedDaily / 30) * 100)),
+      leads: userLeads.length,
+      sales: `R$ ${totalSalesVal.toLocaleString('pt-BR')}`,
+      status: userLeads.length > 0 ? '⚡ Ativo' : '🆕 Convidado',
+      class: 'emerald'
+    };
   });
+
+  if (teamConsultants.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.5rem; opacity: 0.5;">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <br>Nenhum consultor cadastrado nesta equipe.
+          <br><span style="font-size: 0.8rem;">Utilize o botão "Convidar Colaborador (Link 72h)" no menu para convidar membros!</span>
+        </td>
+      </tr>
+    `;
+    return;
+  }
 
   tbody.innerHTML = teamConsultants.map(c => `
     <tr style="border-bottom: 1px solid var(--border-color);">
@@ -2669,11 +2609,51 @@ function renderManagerView() {
   const container = document.getElementById('manager-teams-container');
   if (!container) return;
 
-  const teams = [
-    { name: 'Equipe Alpha', supervisor: 'Carlos Eduardo', members: 5, targetPct: 85, sales: 'R$ 1.850.000', conversion: '34.2%', highlight: true },
-    { name: 'Equipe Beta', supervisor: 'Ana Paula', members: 5, targetPct: 78, sales: 'R$ 1.540.000', conversion: '31.0%', highlight: false },
-    { name: 'Equipe Gamma', supervisor: 'Marcos Vinícius', members: 5, targetPct: 72, sales: 'R$ 1.230.000', conversion: '29.5%', highlight: false }
-  ];
+  const registeredUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  
+  const teamsMap = new Map();
+  registeredUsers.forEach(u => {
+    const eq = u.equipeId || 'Equipe Alpha';
+    if (!teamsMap.has(eq)) {
+      teamsMap.set(eq, { name: eq, supervisor: 'Carregando...', members: 0, salesVal: 0, totalLeads: 0, closedLeads: 0 });
+    }
+    const teamObj = teamsMap.get(eq);
+    teamObj.members++;
+    if (u.cargo === 'supervisor') teamObj.supervisor = u.nomeCompleto || u.email;
+
+    const uLeads = state.leads.filter(l => l.consultantUid === u.id || l.consultantEmail === u.email);
+    teamObj.totalLeads += uLeads.length;
+    uLeads.forEach(l => {
+      if (l.status === 7) {
+        teamObj.closedLeads++;
+        teamObj.salesVal += (Number(l.valorConsorcio) || 0);
+      }
+    });
+  });
+
+  const teams = Array.from(teamsMap.values()).map((t, idx) => ({
+    name: t.name,
+    supervisor: t.supervisor !== 'Carregando...' ? t.supervisor : 'Definir Supervisor',
+    members: t.members,
+    targetPct: t.totalLeads > 0 ? Math.round((t.closedLeads / t.totalLeads) * 100) : 0,
+    sales: `R$ ${t.salesVal.toLocaleString('pt-BR')}`,
+    conversion: t.totalLeads > 0 ? `${((t.closedLeads / t.totalLeads) * 100).toFixed(1)}%` : '0%',
+    highlight: idx === 0 && t.salesVal > 0
+  }));
+
+  if (teams.length === 0) {
+    container.innerHTML = `
+      <div style="background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 10px; padding: 2.5rem; text-align: center; color: var(--text-muted);">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.5rem; opacity: 0.5;">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+        <h4 style="margin: 0.5rem 0 0.2rem 0; font-size: 1.05rem; font-weight: 700;">Nenhuma equipe cadastrada ainda</h4>
+        <span style="font-size: 0.85rem;">As estatísticas de equipes aparecerão assim que supervisores e consultores se registrarem no sistema.</span>
+      </div>
+    `;
+    return;
+  }
 
   container.innerHTML = teams.map((t, idx) => `
     <div style="background: var(--bg-card); border: 1px solid ${t.highlight ? 'var(--primary)' : 'var(--border-color)'}; border-radius: 10px; padding: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
@@ -2683,7 +2663,7 @@ function renderManagerView() {
         </div>
         <div>
           <h4 style="font-size: 1.05rem; font-weight: 700; margin: 0;">${escapeHtml(t.name)} ${t.highlight ? '🏆' : ''}</h4>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Supervisor: ${escapeHtml(t.supervisor)} | ${t.members} Consultores</span>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Supervisor: ${escapeHtml(t.supervisor)} | ${t.members} Mapeados</span>
         </div>
       </div>
 
@@ -2713,33 +2693,63 @@ function renderOwnerView() {
   const usersContainer = document.getElementById('owner-users-container');
 
   if (roiTbody) {
-    const origensROI = [
-      { canal: 'Instagram Direct / Ads', leads: 142, vendas: 28, volume: 'R$ 3.850.000', conv: '19.7%', roi: '480%' },
-      { canal: 'Facebook Ads', leads: 110, vendas: 18, volume: 'R$ 2.420.000', conv: '16.3%', roi: '360%' },
-      { canal: 'Indicação de Clientes', leads: 45, vendas: 16, volume: 'R$ 2.150.000', conv: '35.5%', roi: '950%' },
-      { canal: 'WhatsApp Direto', leads: 88, vendas: 12, volume: 'R$ 1.120.000', conv: '13.6%', roi: '290%' },
-      { canal: 'Google Ads', leads: 35, vendas: 4, volume: 'R$ 300.000', conv: '11.4%', roi: '180%' }
-    ];
+    const origens = ['Instagram', 'Facebook', 'LinkedIn', 'WhatsApp', 'Indicação', 'Google Ads'];
+    const origensROI = origens.map(canal => {
+      const canalLeads = state.leads.filter(l => (l.origem || '').toLowerCase().includes(canal.toLowerCase()));
+      const closed = canalLeads.filter(l => l.status === 7);
+      const vol = closed.reduce((acc, l) => acc + (Number(l.valorConsorcio) || 0), 0);
+      const conv = canalLeads.length > 0 ? ((closed.length / canalLeads.length) * 100).toFixed(1) : '0';
+      return {
+        canal,
+        leads: canalLeads.length,
+        vendas: closed.length,
+        volume: `R$ ${vol.toLocaleString('pt-BR')}`,
+        conv: `${conv}%`,
+        roi: canalLeads.length > 0 ? `${(Number(conv) * 12).toFixed(0)}%` : '0%'
+      };
+    }).filter(r => r.leads > 0);
 
-    roiTbody.innerHTML = origensROI.map(r => `
-      <tr style="border-bottom: 1px solid var(--border-color);">
-        <td style="padding: 0.75rem; font-weight: 700; color: var(--text-main);">${escapeHtml(r.canal)}</td>
-        <td style="padding: 0.75rem; font-family: 'JetBrains Mono', monospace;">${r.leads}</td>
-        <td style="padding: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-main);">${r.vendas}</td>
-        <td style="padding: 0.75rem; font-family: 'JetBrains Mono', monospace; color: var(--accent-emerald); font-weight: 700;">${r.volume}</td>
-        <td style="padding: 0.75rem; font-weight: 700; color: #3b82f6;">${r.conv}</td>
-        <td style="padding: 0.75rem;"><span class="badge emerald" style="font-weight: 700;">${r.roi}</span></td>
-      </tr>
-    `).join('');
+    if (origensROI.length === 0) {
+      roiTbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+            📈 Nenhum lead cadastrado no momento para análise de ROI por canal.
+          </td>
+        </tr>
+      `;
+    } else {
+      roiTbody.innerHTML = origensROI.map(r => `
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem; font-weight: 700; color: var(--text-main);">${escapeHtml(r.canal)}</td>
+          <td style="padding: 0.75rem; font-family: 'JetBrains Mono', monospace;">${r.leads}</td>
+          <td style="padding: 0.75rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-main);">${r.vendas}</td>
+          <td style="padding: 0.75rem; font-family: 'JetBrains Mono', monospace; color: var(--accent-emerald); font-weight: 700;">${r.volume}</td>
+          <td style="padding: 0.75rem; font-weight: 700; color: #3b82f6;">${r.conv}</td>
+          <td style="padding: 0.75rem;"><span class="badge emerald" style="font-weight: 700;">${r.roi}</span></td>
+        </tr>
+      `).join('');
+    }
   }
 
   if (usersContainer) {
+    const registeredUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+    if (state.currentUser && !registeredUsers.some(u => u.email === state.currentUser.email)) {
+      registeredUsers.push(state.currentUser);
+    }
+
     const rolesSummary = [
-      { role: '👑 Licenciado / Proprietário', count: 1, names: 'Gabriel Medeiros (Dono da Loja)' },
-      { role: '💼 Gestores Comerciais', count: 1, names: 'Roberto Mendes' },
-      { role: '👔 Supervisores de Vendas', count: 3, names: 'Carlos Eduardo (Alpha), Ana Paula (Beta), Marcos Vinícius (Gamma)' },
-      { role: '👤 Consultores de Vendas', count: 15, names: 'Lucas Silva, Mariana Santos, Rafael Oliveira, Beatriz Lima, Felipe Costa...' }
-    ];
+      { role: '👑 Licenciado / Proprietário', key: 'licenciado', fallback: 'owner' },
+      { role: '💼 Gestores Comerciais', key: 'gestor', fallback: 'manager' },
+      { role: '👔 Supervisores de Vendas', key: 'supervisor', fallback: 'supervisor' },
+      { role: '👤 Consultores de Vendas', key: 'consultor', fallback: 'consultant' }
+    ].map(r => {
+      const matched = registeredUsers.filter(u => (u.cargo || '').toLowerCase() === r.key || (u.cargo || '').toLowerCase() === r.fallback);
+      return {
+        role: r.role,
+        count: matched.length,
+        names: matched.map(m => m.nomeCompleto || m.email).join(', ') || 'Nenhum cadastrado'
+      };
+    });
 
     usersContainer.innerHTML = rolesSummary.map(u => `
       <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
@@ -2747,7 +2757,7 @@ function renderOwnerView() {
           <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">${escapeHtml(u.role)}</h4>
           <span style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(u.names)}</span>
         </div>
-        <span class="badge primary" style="font-size: 0.85rem; font-weight: 700; padding: 4px 12px;">${u.count} Ativo(s)</span>
+        <span class="badge primary" style="font-size: 0.85rem; font-weight: 700; padding: 4px 12px;">${u.count} Cadastrado(s)</span>
       </div>
     `).join('');
   }
@@ -2795,12 +2805,6 @@ function populateConsultantFilterDropdown() {
       consultantsMap.set(l.consultantUid, l.consultantName || l.consultantEmail || l.consultantUid);
     }
   });
-
-  if (typeof MOCK_RANKING_CONSULTANTS !== 'undefined') {
-    MOCK_RANKING_CONSULTANTS.slice(0, 5).forEach(c => {
-      consultantsMap.set(`mock_${c.rank}`, `${c.name} (${c.team})`);
-    });
-  }
 
   let html = `<option value="todos">Todos os Consultores (Loja)</option>`;
   consultantsMap.forEach((name, uid) => {
@@ -2975,41 +2979,79 @@ function renderReportsView() {
 
 // ================= TELA 7: RANKING & GAMIFICAÇÃO ================= //
 
-const MOCK_RANKING_CONSULTANTS = [
-  { rank: 1, name: 'Eliana & Caique', team: 'Summit', photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', revenueMonth: 3560000, revenueQuarter: 9800000 },
-  { rank: 2, name: 'Sol & Emerson', team: 'Martins PG', photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80', revenueMonth: 2340000, revenueQuarter: 7200000 },
-  { rank: 3, name: 'Taila', team: 'Maesta', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80', revenueMonth: 2195000, revenueQuarter: 6500000 },
-  { rank: 4, name: 'Gabriela E Tiago', team: 'Jezreel', photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=120&q=80', revenueMonth: 2170000, revenueQuarter: 5900000 },
-  { rank: 5, name: 'Vitoria E Bruno', team: "Pickler's", photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=120&q=80', revenueMonth: 2046204.04, revenueQuarter: 5400000 },
-  { rank: 6, name: 'Gustavo M', team: 'Braves', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80', revenueMonth: 2025000, revenueQuarter: 5100000 },
-  { rank: 7, name: 'Tiago Ferreira', team: "Pickler's", photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80', revenueMonth: 1720000, revenueQuarter: 4800000 },
-  { rank: 8, name: 'Vanessa E Renan', team: 'Guebers', photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80', revenueMonth: 1440736, revenueQuarter: 4200000 },
-  { rank: 9, name: 'Michele', team: 'Braves', photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80', revenueMonth: 1410000, revenueQuarter: 3900000 },
-  { rank: 10, name: 'Francieli Giare', team: 'Gabardo', photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=120&q=80', revenueMonth: 1300000, revenueQuarter: 3600000 },
-  { rank: 11, name: 'Rosiane Oliveira', team: "Pickler's", photo: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=120&q=80', revenueMonth: 1216000, revenueQuarter: 3400000 },
-  { rank: 12, name: 'Mahye E Paulo', team: 'Braves', photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80', revenueMonth: 1200000, revenueQuarter: 3200000 },
-  { rank: 13, name: 'Arthur Vinicius', team: 'Guebers', photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=120&q=80', revenueMonth: 1200000, revenueQuarter: 3100000 },
-  { rank: 14, name: 'Andreje', team: 'Ribeirão Preto', photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=120&q=80', revenueMonth: 1200000, revenueQuarter: 3000000 },
-  { rank: 15, name: 'Piri & Alanna', team: 'Invictus', photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80', revenueMonth: 1120000, revenueQuarter: 2900000 },
-  { rank: 16, name: 'Sandra Peleg', team: 'Gabardo', photo: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=120&q=80', revenueMonth: 1080000, revenueQuarter: 2800000 },
-  { rank: 17, name: 'Neildo', team: 'Olimpo', photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80', revenueMonth: 1040000, revenueQuarter: 2700000 },
-  { rank: 18, name: 'Gabi E Brian', team: 'Jezreel', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80', revenueMonth: 1020000, revenueQuarter: 2600000 },
-  { rank: 19, name: 'Maria & Patrick', team: 'Olimpo', photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=120&q=80', revenueMonth: 1000000, revenueQuarter: 2500000 },
-  { rank: 20, name: 'Italo', team: 'Ribeirão Preto', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80', revenueMonth: 1000000, revenueQuarter: 2400000 },
-  { rank: 21, name: 'Bruna', team: 'Ribeirão Preto', photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80', revenueMonth: 968000, revenueQuarter: 2300000 },
-  { rank: 22, name: 'Regina', team: 'Ribeirão Preto', photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=120&q=80', revenueMonth: 950870, revenueQuarter: 2200000 },
-  { rank: 23, name: 'Cauê Costa', team: 'Summit', photo: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80', revenueMonth: 940000, revenueQuarter: 2100000 },
-  { rank: 24, name: 'Brenda', team: "Pickler's", photo: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=120&q=80', revenueMonth: 895000, revenueQuarter: 2000000 }
-];
+function getRealRankingConsultants() {
+  const registeredUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  if (state.currentUser && !registeredUsers.some(u => u.email === state.currentUser.email)) {
+    registeredUsers.push(state.currentUser);
+  }
 
-const MOCK_RANKING_TEAMS = [
-  { rank: 1, name: 'RIBEIRÃO PRETO', totalRevenue: 11023696.55, members: 22 },
-  { rank: 2, name: "PICKLER'S", totalRevenue: 11012690.04, members: 31 },
-  { rank: 3, name: 'BRAVES', totalRevenue: 10497039.17, members: 18 },
-  { rank: 4, name: 'MARTINS PG', totalRevenue: 6787928.00, members: 14 },
-  { rank: 5, name: 'SUMMIT', totalRevenue: 5420000.00, members: 10 },
-  { rank: 6, name: 'OLIMPO', totalRevenue: 4980000.00, members: 12 }
-];
+  const consultantsMap = new Map();
+
+  registeredUsers.forEach(u => {
+    const id = u.id || u.uid || u.email;
+    consultantsMap.set(id, {
+      id,
+      name: u.nomeCompleto || u.displayName || u.email || 'Consultor',
+      team: u.equipeId || u.equipe || 'Equipe Alpha',
+      photo: u.photoURL || u.fotoUrl || '',
+      revenueMonth: 0,
+      revenueQuarter: 0,
+      closedCount: 0
+    });
+  });
+
+  state.leads.forEach(lead => {
+    if (lead.status === 7 || lead.columnId === 'venda-fechada') {
+      const val = Number(lead.valorConsorcio) || Number(lead.valor) || 0;
+      const consultantId = lead.consultantUid || lead.consultantEmail;
+      
+      let entry = consultantId ? consultantsMap.get(consultantId) : null;
+      if (!entry) {
+        entry = {
+          id: consultantId || 'c_' + Date.now(),
+          name: lead.consultantName || lead.consultantEmail || 'Consultor',
+          team: lead.teamName || 'Equipe Alpha',
+          photo: '',
+          revenueMonth: 0,
+          revenueQuarter: 0,
+          closedCount: 0
+        };
+        consultantsMap.set(entry.id, entry);
+      }
+      entry.revenueMonth += val;
+      entry.revenueQuarter += val;
+      entry.closedCount++;
+    }
+  });
+
+  return Array.from(consultantsMap.values()).sort((a, b) => b.revenueMonth - a.revenueMonth);
+}
+
+function getRealRankingTeams() {
+  const registeredUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+  const teamsMap = new Map();
+
+  registeredUsers.forEach(u => {
+    const eq = u.equipeId || u.equipe || 'Equipe Alpha';
+    if (!teamsMap.has(eq)) {
+      teamsMap.set(eq, { name: eq, totalRevenue: 0, members: 0 });
+    }
+    teamsMap.get(eq).members++;
+  });
+
+  state.leads.forEach(lead => {
+    if (lead.status === 7 || lead.columnId === 'venda-fechada') {
+      const val = Number(lead.valorConsorcio) || Number(lead.valor) || 0;
+      const eq = lead.teamName || 'Equipe Alpha';
+      if (!teamsMap.has(eq)) {
+        teamsMap.set(eq, { name: eq, totalRevenue: 0, members: 1 });
+      }
+      teamsMap.get(eq).totalRevenue += val;
+    }
+  });
+
+  return Array.from(teamsMap.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
+}
 
 let rankingMode = 'month';
 let tvTimerInterval = null;
@@ -3036,7 +3078,6 @@ function startTvRotation() {
     tvTimeLeft--;
     if (tvTimeLeft <= 0) {
       tvTimeLeft = tvIntervalDuration;
-      // Alternar entre 'month' e 'teams' (ou 'quarter' se for owner)
       const nextMode = (rankingMode === 'month') ? 'teams' : 'month';
       setRankingMode(nextMode);
     }
@@ -3083,7 +3124,6 @@ function updateRankingPermissionsUI() {
 }
 
 function setRankingMode(mode) {
-  // Se tentar acessar 'quarter' sem ser owner, força 'month'
   if (mode === 'quarter' && state.currentRole !== 'owner') {
     showToast('🔒 O Ranking Trimestral é de acesso exclusivo do Licenciado.', 'warning');
     mode = 'month';
@@ -3096,9 +3136,9 @@ function setRankingMode(mode) {
 
   const titleEl = document.getElementById('ranking-period-title');
   if (titleEl) {
-    if (mode === 'month') titleEl.textContent = '🏆 Ranking de Vendas - Agosto/2026 (Mensal)';
-    else if (mode === 'quarter') titleEl.textContent = '🏆 Ranking de Vendas - 3º Trimestre/2026';
-    else if (mode === 'teams') titleEl.textContent = '🏆 Ranking de Equipes da Loja - Agosto/2026';
+    if (mode === 'month') titleEl.textContent = '🏆 Ranking de Vendas - Mensal (Vendas Reais)';
+    else if (mode === 'quarter') titleEl.textContent = '🏆 Ranking de Vendas - Trimestral (Vendas Reais)';
+    else if (mode === 'teams') titleEl.textContent = '🏆 Ranking de Equipes da Loja';
   }
 
   renderRankingView();
@@ -3114,54 +3154,66 @@ function renderRankingView() {
 
   if (rankingMode === 'teams') {
     podiumContainer.style.display = 'none';
+    const teams = getRealRankingTeams();
+
+    if (teams.length === 0 || teams.every(t => t.totalRevenue === 0)) {
+      contentArea.innerHTML = `
+        <div style="background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 10px; padding: 3rem; text-align: center; color: var(--text-muted);">
+          <p style="font-size: 1.15rem; font-weight: 700; margin: 0 0 0.5rem 0;">🏆 Nenhum dado de vendas por equipe para este período.</p>
+          <span style="font-size: 0.85rem;">As vendas fechadas no Funil de Vendas alimentarão automaticamente o ranking!</span>
+        </div>
+      `;
+      return;
+    }
 
     contentArea.innerHTML = `
       <div class="team-rank-list">
-        ${MOCK_RANKING_TEAMS.map(t => {
-          const avatarCount = Math.min(16, t.members);
-          let avatarsHtml = '';
-          for (let i = 0; i < avatarCount; i++) {
-            const avatarUrl = MOCK_RANKING_CONSULTANTS[i % MOCK_RANKING_CONSULTANTS.length].photo;
-            avatarsHtml += `<div class="avatar-cluster-item"><img src="${avatarUrl}" alt="Membro"></div>`;
-          }
-          return `
-            <div class="team-rank-row">
-              <div class="team-rank-pos">${t.rank}</div>
-              <div class="team-name-title">
-                <h3>${escapeHtml(t.name)}</h3>
-              </div>
-              <div class="avatar-cluster">
-                ${avatarsHtml}
-              </div>
-              <div class="team-revenue-badge">
-                R$ ${t.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </div>
+        ${teams.map((t, idx) => `
+          <div class="team-rank-row">
+            <div class="team-rank-pos">#${idx + 1}</div>
+            <div class="team-name-title">
+              <h3>${escapeHtml(t.name)}</h3>
             </div>
-          `;
-        }).join('')}
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+              ${t.members} Colaborador(es)
+            </div>
+            <div class="team-revenue-badge">
+              R$ ${t.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        `).join('')}
       </div>
     `;
   } else {
+    const consultants = getRealRankingConsultants();
+    const sorted = consultants.filter(c => c.revenueMonth > 0 || c.closedCount > 0);
+
+    if (sorted.length === 0) {
+      podiumContainer.style.display = 'none';
+      contentArea.innerHTML = `
+        <div style="background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 10px; padding: 3rem; text-align: center; color: var(--text-muted); margin-top: 1rem;">
+          <p style="font-size: 1.15rem; font-weight: 700; margin: 0 0 0.5rem 0;">🏆 Nenhum consultor ranqueado com vendas no período.</p>
+          <span style="font-size: 0.85rem;">Mova os leads para a coluna "Venda Fechada (Contemplado)" no Funil para gerar o pódio!</span>
+        </div>
+      `;
+      return;
+    }
+
     podiumContainer.style.display = 'flex';
 
-    const sorted = [...MOCK_RANKING_CONSULTANTS].sort((a, b) => {
-      const valA = (rankingMode === 'quarter') ? a.revenueQuarter : a.revenueMonth;
-      const valB = (rankingMode === 'quarter') ? b.revenueQuarter : b.revenueMonth;
-      return valB - valA;
-    });
+    const getRev = (item) => (rankingMode === 'quarter' ? item.revenueQuarter : item.revenueMonth);
+    const getAvatar = (item) => item.photo ? `<img src="${item.photo}" alt="${escapeHtml(item.name)}">` : `<span style="font-size:1.5rem; font-weight:800; color:var(--primary);">${(item.name.charAt(0) || 'C').toUpperCase()}</span>`;
 
     const first = sorted[0];
-    const second = sorted[1];
-    const third = sorted[2];
-
-    const getRev = (item) => (rankingMode === 'quarter' ? item.revenueQuarter : item.revenueMonth);
+    const second = sorted[1] || { name: 'Aguardando 2º', team: 'Equipe', revenueMonth: 0, revenueQuarter: 0, photo: '' };
+    const third = sorted[2] || { name: 'Aguardando 3º', team: 'Equipe', revenueMonth: 0, revenueQuarter: 0, photo: '' };
 
     podiumContainer.innerHTML = `
       <!-- 2º Lugar -->
       <div class="podium-card second">
         <div class="podium-badge-icon silver">2º</div>
-        <div class="podium-avatar-wrap">
-          <img src="${second.photo}" alt="${escapeHtml(second.name)}">
+        <div class="podium-avatar-wrap" style="display:flex; align-items:center; justify-content:center;">
+          ${getAvatar(second)}
         </div>
         <div class="podium-name">${escapeHtml(second.name)}</div>
         <div class="podium-team">${escapeHtml(second.team)}</div>
@@ -3172,8 +3224,8 @@ function renderRankingView() {
       <div class="podium-card first">
         <div style="font-size: 1.5rem; margin-bottom: -0.25rem;">👑</div>
         <div class="podium-badge-icon gold">1º</div>
-        <div class="podium-avatar-wrap">
-          <img src="${first.photo}" alt="${escapeHtml(first.name)}">
+        <div class="podium-avatar-wrap" style="display:flex; align-items:center; justify-content:center;">
+          ${getAvatar(first)}
         </div>
         <div class="podium-name" style="font-size: 1.15rem; color: var(--primary);">${escapeHtml(first.name)}</div>
         <div class="podium-team">${escapeHtml(first.team)}</div>
@@ -3185,8 +3237,8 @@ function renderRankingView() {
       <!-- 3º Lugar -->
       <div class="podium-card third">
         <div class="podium-badge-icon bronze">3º</div>
-        <div class="podium-avatar-wrap">
-          <img src="${third.photo}" alt="${escapeHtml(third.name)}">
+        <div class="podium-avatar-wrap" style="display:flex; align-items:center; justify-content:center;">
+          ${getAvatar(third)}
         </div>
         <div class="podium-name">${escapeHtml(third.name)}</div>
         <div class="podium-team">${escapeHtml(third.team)}</div>
@@ -3195,13 +3247,18 @@ function renderRankingView() {
     `;
 
     const remaining = sorted.slice(3);
+    if (remaining.length === 0) {
+      contentArea.innerHTML = '';
+      return;
+    }
+
     contentArea.innerHTML = `
       <div class="consultants-rank-grid">
         ${remaining.map((item, idx) => `
           <div class="rank-card-item">
             <div class="rank-number-badge">${idx + 4}</div>
-            <div class="rank-avatar">
-              <img src="${item.photo}" alt="${escapeHtml(item.name)}">
+            <div class="rank-avatar" style="display:flex; align-items:center; justify-content:center;">
+              ${getAvatar(item)}
             </div>
             <div class="rank-info">
               <div class="rank-header-line">
