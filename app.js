@@ -1455,6 +1455,10 @@ function formatDateBR(dateStr) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
+function formatDate(dateStr) {
+  return formatDateBR(dateStr);
+}
+
 function formatMoney(amount) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(amount);
 }
@@ -2324,7 +2328,7 @@ function renderProfileView() {
   const rawCpf = u.cpf || u.cpfRaw || '';
   const cpf = rawCpf ? formatCPFUnmasked(rawCpf) : 'Não cadastrado';
   const rawDob = u.dataNascimento || u.dob || '';
-  const dob = rawDob ? formatDate(rawDob) : 'Não informada';
+  const dob = rawDob ? formatDateBR(rawDob) : 'Não informada';
   const cargo = (u.cargo || u.role || 'consultant').toUpperCase();
   const loja = u.lojaId || u.loja || 'Loja Matriz SP';
   const equipe = u.equipeId || u.equipe || 'Equipe Alpha';
