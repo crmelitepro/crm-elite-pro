@@ -2161,36 +2161,19 @@ function getRoleLabel(role) {
 }
 
 function updateRoleUI() {
-  const realRole = getUserRole();
-  const isOwnerOrMaster = (realRole === 'owner');
-
-  // Se não for Licenciado/Admin Master, trava a role na role real cadastrada
-  if (!isOwnerOrMaster) {
-    state.currentRole = realRole;
-  }
-
-  const role = state.currentRole;
-  const roleSelectorSection = document.getElementById('sidebar-role-section');
-  const roleSelect = document.getElementById('role-selector');
-
-  if (roleSelect) {
-    roleSelect.value = role;
-  }
-
-  if (roleSelectorSection) {
-    // Exibir o seletor apenas para o Dono / Licenciado
-    roleSelectorSection.style.display = isOwnerOrMaster ? 'block' : 'none';
-  }
+  const role = getUserRole();
+  state.currentRole = role;
 
   const tabSupervisor = document.getElementById('tab-supervisor');
   const tabManager = document.getElementById('tab-manager');
   const tabOwner = document.getElementById('tab-owner');
 
+  // Exibir apenas as abas permitidas no menu de acordo com a hierarquia
   if (tabSupervisor) tabSupervisor.style.display = (role === 'supervisor' || role === 'manager' || role === 'owner') ? 'inline-flex' : 'none';
   if (tabManager) tabManager.style.display = (role === 'manager' || role === 'owner') ? 'inline-flex' : 'none';
   if (tabOwner) tabOwner.style.display = (role === 'owner') ? 'inline-flex' : 'none';
 
-  // Ocultar botão de gerar convite para Consultor
+  // Ocultar botão de gerar convite para Consultor (apenas Supervisor, Gestor e Licenciado podem convidar)
   const btnInvite = document.getElementById('btn-sidebar-generate-invite');
   if (btnInvite) {
     btnInvite.style.display = (role === 'consultant') ? 'none' : 'flex';
