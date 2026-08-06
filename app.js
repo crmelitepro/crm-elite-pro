@@ -1091,7 +1091,7 @@ function renderKanban() {
 
   // Render 7 Columns
   board.innerHTML = KANBAN_STAGES.map(stage => {
-    const stageLeads = filteredLeads.filter(l => l.status === stage.id);
+    const stageLeads = filteredLeads.filter(l => Number(l.status) === Number(stage.id));
     
     return `
       <div class="kanban-column" 
@@ -1108,7 +1108,9 @@ function renderKanban() {
           <span class="column-count">${stageLeads.length}</span>
         </div>
 
-        <div class="column-cards">
+        <div class="column-cards"
+             ondragover="handleDragOver(event)"
+             ondrop="handleDrop(event, ${stage.id})">
           ${stageLeads.map(lead => {
             const isOverdue = lead.proximoContato && lead.proximoContato < todayStr;
             const isToday = lead.proximoContato && lead.proximoContato === todayStr;
@@ -1354,73 +1356,74 @@ function closeLeadModal() {
 }
 
 function handleLeadSubmit(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
 
-  const id = document.getElementById('lead-id').value;
-  const nome = document.getElementById('lead-nome').value.trim();
-  const telefone = document.getElementById('lead-telefone').value.trim();
-  const origem = document.getElementById('lead-origem').value;
-  const status = parseInt(document.getElementById('lead-status').value, 10);
-  const proximoContato = document.getElementById('lead-data').value;
-  const valorConsorcio = Number(document.getElementById('lead-valor').value) || 0;
-  const notas = document.getElementById('lead-notas').value.trim();
+  try {
+    const id = document.getElementById('lead-id').value;
+    const nome = document.getElementById('lead-nome').value.trim();
+    const telefone = document.getElementById('lead-telefone').value.trim();
+    const origem = document.getElementById('lead-origem').value;
+    const status = parseInt(document.getElementById('lead-status').value, 10);
+    const proximoContato = document.getElementById('lead-data').value;
+    const valorConsorcio = Number(document.getElementById('lead-valor').value) || 0;
+    const notas = document.getElementById('lead-notas').value.trim();
 
-  if (!nome || !telefone) {
-    alert('Preencha o nome do cliente e o telefone!');
-    return;
-  }
-
-  // Check mandatory date rule if status is 1 or 6
-  if ((status === 1 || status === 6) && !proximoContato) {
-    alert('A data de próximo contato é OBRIGATÓRIA para Contato Captado e Stand-by!');
-    return;
-  }
-
-  const info = getConsultantInfo();
-
-  if (id) {
-    // Edit existing
-    const lead = state.leads.find(l => l.id === id);
-    if (lead) {
-      lead.nome = nome;
-      lead.telefone = telefone;
-      lead.origem = origem;
-      lead.status = status;
-      lead.proximoContato = proximoContato;
-      lead.valorConsorcio = valorConsorcio;
-      lead.notas = notas;
-      lead.updatedAt = new Date().toISOString();
+    if (!nome || !telefone) {
+      alert('Preencha o nome do cliente e o telefone!');
+      return;
     }
-    showToast(`Lead "${nome}" atualizado!`, 'success');
-  } else {
-    // Create new
-    const newLead = {
-      id: 'crm_lead_' + Date.now(),
-      nome,
-      telefone,
-      origem,
-      status,
-      proximoContato,
-      valorConsorcio,
-      notas,
-      createdAt: new Date().toISOString(),
-      consultantUid: info.consultantUid,
-      consultantEmail: info.consultantEmail,
-      consultantName: info.consultantName,
-      teamName: info.teamName
-    };
-    state.leads.unshift(newLead);
-    showToast(`Novo lead "${nome}" cadastrado com sucesso!`, 'success');
+
+    if ((status === 1 || status === 6) && !proximoContato) {
+      alert('A data de próximo contato é OBRIGATÓRIA para Contato Captado e Stand-by!');
+      return;
+    }
+
+    const info = getConsultantInfo();
+
+    if (id) {
+      const lead = state.leads.find(l => l.id === id);
+      if (lead) {
+        lead.nome = nome;
+        lead.telefone = telefone;
+        lead.origem = origem;
+        lead.status = status;
+        lead.proximoContato = proximoContato;
+        lead.valorConsorcio = valorConsorcio;
+        lead.notas = notas;
+        lead.updatedAt = new Date().toISOString();
+      }
+      showToast(`Lead "${nome}" atualizado!`, 'success');
+    } else {
+      const newLead = {
+        id: 'crm_lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        nome,
+        telefone,
+        origem,
+        status,
+        proximoContato,
+        valorConsorcio,
+        notas,
+        createdAt: new Date().toISOString(),
+        consultantUid: info.consultantUid,
+        consultantEmail: info.consultantEmail,
+        consultantName: info.consultantName,
+        teamName: info.teamName
+      };
+      state.leads.unshift(newLead);
+      showToast(`Novo lead "${nome}" cadastrado com sucesso!`, 'success');
+    }
+
+    saveLeads();
+  } catch (err) {
+    console.error('Erro ao salvar lead:', err);
+    showToast('Erro ao processar formulário. Tente novamente.', 'danger');
+  } finally {
+    closeLeadModal();
+    document.getElementById('form-lead')?.reset();
+    document.getElementById('lead-id').value = '';
+    switchTab('kanban');
+    renderKanban();
   }
-
-  saveLeads();
-  closeLeadModal();
-
-  document.getElementById('form-lead')?.reset();
-  document.getElementById('lead-id').value = '';
-
-  switchTab('kanban');
-  renderKanban();
 }
 
 // ================= UTILITIES & HELPERS ================= //
@@ -2104,19 +2107,21 @@ function handleSaveFirebaseConfig(e) {
   window.FirebaseService.saveCustomConfig(newConfig);
 }
 
-// Sincronização em Nuvem Firestore (Leads & Metas)
+let unsubscribeStoreLeadsSnapshot = null;
+
+// Sincronização em Nuvem Firestore Multi-dispositivo (Leads & Metas)
 function syncLeadsFromFirestore(userId) {
   const { db, collection, onSnapshot } = window.FirebaseService || {};
-  if (!db || !userId) return;
+  if (!db) return;
 
-  const leadsCol = collection(db, 'users', userId, 'leads');
+  const u = state.currentUser;
+  const userUid = u ? (u.uid || u.id || userId) : userId;
+  const userEmail = u ? (u.email || '').toLowerCase() : '';
 
-  if (unsubscribeLeadsSnapshot) unsubscribeLeadsSnapshot();
+  const demoNames = ['carlos eduardo oliveira', 'mariana souza', 'fernando mendes', 'patricia lima', 'rodrigo alves', 'juliana barbosa'];
+  const demoIds = ['lead-1', 'lead-2', 'lead-3', 'lead-4', 'lead-5', 'lead-6'];
 
-  unsubscribeLeadsSnapshot = onSnapshot(leadsCol, (snapshot) => {
-    const demoNames = ['carlos eduardo oliveira', 'mariana souza', 'fernando mendes', 'patricia lima', 'rodrigo alves', 'juliana barbosa'];
-    const demoIds = ['lead-1', 'lead-2', 'lead-3', 'lead-4', 'lead-5', 'lead-6'];
-
+  const processSnapshotDocs = (snapshot) => {
     const cloudLeadsMap = new Map();
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
@@ -2124,11 +2129,15 @@ function syncLeadsFromFirestore(userId) {
       const leadName = (data.nome || '').toLowerCase().trim();
 
       if (!demoIds.includes(leadId) && !demoNames.includes(leadName)) {
-        cloudLeadsMap.set(leadId, { id: leadId, ...data });
+        const isOwner = ['admin', 'licenciado', 'owner', 'manager', 'gestor'].includes((state.currentRole || '').toLowerCase());
+        const isUserLead = !data.consultantUid || data.consultantUid === userUid || (userEmail && (data.consultantEmail || '').toLowerCase() === userEmail);
+
+        if (isOwner || isUserLead) {
+          cloudLeadsMap.set(leadId, { id: leadId, ...data });
+        }
       }
     });
 
-    // Mesclar leads locais existentes que ainda nao foram para a nuvem
     const mergedLeads = [...cloudLeadsMap.values()];
     state.leads.forEach(localLead => {
       if (localLead && localLead.id && !cloudLeadsMap.has(localLead.id)) {
@@ -2139,17 +2148,31 @@ function syncLeadsFromFirestore(userId) {
     state.leads = mergedLeads;
     localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
 
-    if (mergedLeads.length > cloudLeadsMap.size) {
-      saveLeads();
-    } else {
-      renderFollowups();
-      renderKanban();
-      renderOrigemDropdowns();
-      renderReportsView();
-    }
+    renderFollowups();
+    renderKanban();
+    renderOrigemDropdowns();
+    renderReportsView();
+  };
+
+  // 1. Escutar a coleção central store_leads para sincronização multi-dispositivo instantânea
+  if (unsubscribeStoreLeadsSnapshot) unsubscribeStoreLeadsSnapshot();
+  const storeLeadsCol = collection(db, 'store_leads');
+  unsubscribeStoreLeadsSnapshot = onSnapshot(storeLeadsCol, (snapshot) => {
+    processSnapshotDocs(snapshot);
   }, (err) => {
-    console.warn('Erro ao escutar Firestore Leads:', err);
+    console.warn('Erro ao escutar store_leads:', err);
   });
+
+  // 2. Escutar a subcoleção do usuário
+  if (userUid) {
+    if (unsubscribeLeadsSnapshot) unsubscribeLeadsSnapshot();
+    const userLeadsCol = collection(db, 'users', userUid, 'leads');
+    unsubscribeLeadsSnapshot = onSnapshot(userLeadsCol, (snapshot) => {
+      processSnapshotDocs(snapshot);
+    }, (err) => {
+      console.warn('Erro ao escutar subcoleção de leads:', err);
+    });
+  }
 }
 
 function syncGoalsFromFirestore(userId) {
