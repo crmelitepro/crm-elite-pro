@@ -362,7 +362,18 @@ function loadLeads() {
   const data = localStorage.getItem(getUserStorageKey(STORAGE_KEYS.LEADS));
   if (data) {
     try {
-      state.leads = JSON.parse(data);
+      const parsed = JSON.parse(data);
+      const demoNames = ['carlos eduardo oliveira', 'mariana souza', 'fernando mendes', 'patricia lima', 'rodrigo alves', 'juliana barbosa'];
+      const demoIds = ['lead-1', 'lead-2', 'lead-3', 'lead-4', 'lead-5', 'lead-6'];
+
+      state.leads = Array.isArray(parsed) ? parsed.filter(l => {
+        if (!l) return false;
+        if (demoIds.includes(l.id)) return false;
+        if (l.nome && demoNames.includes(l.nome.toLowerCase().trim())) return false;
+        return true;
+      }) : [];
+
+      localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
     } catch (e) {
       state.leads = [];
     }
