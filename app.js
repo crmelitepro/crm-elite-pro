@@ -416,10 +416,13 @@ function saveLeads() {
 }
 
 function resetDemoData() {
-  if (confirm('Deseja restaurar os dados de teste demonstrativos?')) {
-    state.leads = getDemoLeads();
-    saveLeads();
-    showToast('Dados de teste restaurados!', 'success');
+  if (confirm('Deseja zerar a base de leads do sistema para manter estado 100% limpo?')) {
+    state.leads = [];
+    localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify([]));
+    renderFollowups();
+    renderKanban();
+    renderReportsView();
+    showToast('✨ Base de leads zerada com sucesso!', 'success');
   }
 }
 
@@ -2041,9 +2044,18 @@ function syncLeadsFromFirestore(userId) {
   if (unsubscribeLeadsSnapshot) unsubscribeLeadsSnapshot();
 
   unsubscribeLeadsSnapshot = onSnapshot(leadsCol, (snapshot) => {
+    const demoNames = ['carlos eduardo oliveira', 'mariana souza', 'fernando mendes', 'patricia lima', 'rodrigo alves', 'juliana barbosa'];
+    const demoIds = ['lead-1', 'lead-2', 'lead-3', 'lead-4', 'lead-5', 'lead-6'];
+
     const cloudLeads = [];
     snapshot.forEach(docSnap => {
-      cloudLeads.push({ id: docSnap.id, ...docSnap.data() });
+      const data = docSnap.data();
+      const leadId = docSnap.id;
+      const leadName = (data.nome || '').toLowerCase().trim();
+
+      if (!demoIds.includes(leadId) && !demoNames.includes(leadName)) {
+        cloudLeads.push({ id: leadId, ...data });
+      }
     });
 
     state.leads = cloudLeads;
@@ -2954,7 +2966,7 @@ function renderReportsView() {
 
     state.goalConfigs.forEach(cfg => {
       const orig = cfg.origName || cfg.name;
-      tableData[orig] = { prospections: cfg.target * 30, leads: 0, reunioes: 0, vendas: 0, revenue: 0 };
+      tableData[orig] = { prospections: 0, leads: 0, reunioes: 0, vendas: 0, revenue: 0 };
     });
 
     filteredLeads.forEach(l => {
