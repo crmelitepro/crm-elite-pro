@@ -18,8 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260805_27">
-  <script type="module" src="firebase-service.js?v=20260805_27"></script>
+  <link rel="stylesheet" href="styles.css?v=20260805_28">
+  <script type="module" src="firebase-service.js?v=20260805_28"></script>
 </head>
 <body>
   <!-- ================= TELA DE LOGIN OBRIGATÓRIA (GATE) ================= -->
@@ -958,29 +958,38 @@
 
           <!-- Card 2: Segurança & Alteração de Senha -->
           <div class="card profile-section-card">
-            <h3>🔒 Segurança & Alterar Senha</h3>
+            <h3>🔒 Segurança da Conta</h3>
             <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">
-              Altere sua senha de acesso ao CRM com segurança.
+              Gerencie a segurança da sua conta e credenciais de acesso.
             </p>
-            <form onsubmit="handleChangePassword(event)">
+            <button type="button" class="btn btn-outline" onclick="togglePasswordForm()" id="btn-toggle-pass-form" style="width: 100%; justify-content: center; padding: 0.75rem; font-weight: 700;">
+              🔑 Alterar Senha de Acesso
+            </button>
+
+            <form id="profile-password-form" onsubmit="handleChangePassword(event)" style="display: none; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
               <div class="form-group">
                 <label for="profile-current-pass">Senha Atual *</label>
-                <input type="password" id="profile-current-pass" required placeholder="••••••••">
+                <input type="password" id="profile-current-pass" placeholder="••••••••">
               </div>
 
               <div class="form-group">
                 <label for="profile-new-pass">Nova Senha *</label>
-                <input type="password" id="profile-new-pass" required minlength="6" placeholder="Nova senha (mínimo 6 dígitos)">
+                <input type="password" id="profile-new-pass" minlength="6" placeholder="Nova senha (mínimo 6 dígitos)">
               </div>
 
               <div class="form-group">
                 <label for="profile-confirm-new-pass">Confirmar Nova Senha *</label>
-                <input type="password" id="profile-confirm-new-pass" required minlength="6" placeholder="Repita a nova senha">
+                <input type="password" id="profile-confirm-new-pass" minlength="6" placeholder="Repita a nova senha">
               </div>
 
-              <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%; justify-content: center; padding: 0.75rem;">
-                🔑 Atualizar Senha de Acesso
-              </button>
+              <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <button type="button" class="btn btn-outline small" onclick="togglePasswordForm()" style="flex: 1; justify-content: center;">
+                  Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary small" style="flex: 2; justify-content: center; font-weight: 700;">
+                  🔑 Salvar Nova Senha
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1428,6 +1437,6 @@
   <!-- Toast Notifications Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js?v=20260805_27"></script>
+  <script src="app.js?v=20260805_28"></script>
 </body>
 </html>

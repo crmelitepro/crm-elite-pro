@@ -102,6 +102,16 @@ function checkAuthGate() {
       }
     }
 
+    // Se o perfil atual no state carecer de campos como cpf/nomeCompleto, resgata dos registros locais
+    if (state.currentUser && (!state.currentUser.cpf || !state.currentUser.nomeCompleto)) {
+      const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+      const found = localUsers.find(u => u.id === state.currentUser.uid || u.googleId === state.currentUser.uid || u.email === state.currentUser.email);
+      if (found) {
+        state.currentUser = { ...found, ...state.currentUser };
+        localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+      }
+    }
+
     // Sincronizar o cargo do usuário autenticado no estado local
     state.currentRole = getUserRole();
 
@@ -111,6 +121,10 @@ function checkAuthGate() {
     loadLeads();
     renderGoals();
     updateRoleUI();
+
+    if (state.activeTab === 'profile') {
+      renderProfileView();
+    }
 
     if (gate) gate.style.display = 'none';
     if (app) app.style.display = 'flex';
@@ -1504,12 +1518,29 @@ function setupFirebaseAuthListener() {
     return;
   }
 
-  onAuthStateChanged(auth, (user) => {
-    state.currentUser = user;
-
+  onAuthStateChanged(auth, async (user) => {
     if (user) {
+      let userRecord = null;
+      if (window.FirebaseService && window.FirebaseService.db) {
+        try {
+          const { db, doc, getDoc } = window.FirebaseService;
+          const uSnap = await getDoc(doc(db, 'users', user.uid));
+          if (uSnap.exists()) {
+            userRecord = uSnap.data();
+          }
+        } catch (e) {
+          console.warn('Erro ao carregar dados do usuário do Firestore:', e);
+        }
+      }
+      if (!userRecord) {
+        const localUsers = JSON.parse(localStorage.getItem('crm_consorcio_registered_users') || '[]');
+        userRecord = localUsers.find(u => u.googleId === user.uid || u.email === user.email);
+      }
+
+      state.currentUser = { ...user, ...(userRecord || {}) };
       localStorage.setItem('crm_consorcio_auth_logged', 'true');
-      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify({ email: user.email, name: user.displayName || user.email }));
+      localStorage.setItem('crm_consorcio_auth_user', JSON.stringify(state.currentUser));
+
       checkAuthGate();
       renderUserHeader();
       showToast(`🔑 Conectado como ${user.email}`, 'success');
@@ -2354,6 +2385,18 @@ async function handleChangePassword(e) {
   document.getElementById('profile-current-pass').value = '';
   document.getElementById('profile-new-pass').value = '';
   document.getElementById('profile-confirm-new-pass').value = '';
+  togglePasswordForm();
+}
+
+function togglePasswordForm() {
+  const form = document.getElementById('profile-password-form');
+  const btn = document.getElementById('btn-toggle-pass-form');
+  if (!form) return;
+  const isHidden = form.style.display === 'none' || !form.style.display;
+  form.style.display = isHidden ? 'block' : 'none';
+  if (btn) {
+    btn.style.display = isHidden ? 'none' : 'block';
+  }
 }
 
 // Renderização dos Painéis da Hierarquia
