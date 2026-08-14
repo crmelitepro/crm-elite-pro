@@ -58,6 +58,37 @@
   --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ================= SYSTEM SCROLLBARS (100% UNIFIED DARK GLASS) ================= */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background-color: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-full);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+*::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) rgba(0, 0, 0, 0.35);
+}
+
 /* Light Theme Override (Ademicon Light Palette) */
 body.light-theme {
   --bg-dark: #f4f6fa;
@@ -1322,23 +1353,9 @@ body.light-theme .active-page-badge {
   box-sizing: border-box;
 }
 
-/* Custom Scrollbar for Kanban */
+/* Custom Scrollbar for Kanban (Inherits Global System Styling) */
 .kanban-board::-webkit-scrollbar {
-  height: 10px;
-}
-
-.kanban-board::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: var(--radius-full);
-}
-
-.kanban-board::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-full);
-}
-
-.kanban-board::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  height: 9px;
 }
 
 /* Kanban Column */
@@ -1624,27 +1641,10 @@ body.light-theme .active-page-badge {
   margin-right: -0.2rem;
 }
 
-/* Custom Scrollbar for Modal Body */
+/* Custom Scrollbar for Modal Body (Inherits Global System Styling) */
 .modal-body::-webkit-scrollbar,
 .modal-form-scroll-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.modal-body::-webkit-scrollbar-track,
-.modal-form-scroll-body::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: var(--radius-full);
-}
-
-.modal-body::-webkit-scrollbar-thumb,
-.modal-form-scroll-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-full);
-}
-
-.modal-body::-webkit-scrollbar-thumb:hover,
-.modal-form-scroll-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35);
+  width: 7px;
 }
 
 /* Form Controls */
