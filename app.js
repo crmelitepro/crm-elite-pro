@@ -142,6 +142,7 @@ function checkAuthGate() {
     if (gate) gate.style.display = 'none';
     if (app) app.style.display = 'flex';
     renderUserHeader();
+    updateDashboardWelcome();
   } else {
     if (gate) gate.style.display = 'flex';
     if (app) app.style.display = 'none';
@@ -674,6 +675,7 @@ function renderGoals() {
 
   // Renderizar Pirâmide de Metas (Mensal e Semanal Reajustada Dinamicamente)
   renderPyramidGoals();
+  updateDashboardWelcome();
 }
 
 function getWeeksRemainingInCurrentMonth() {
@@ -688,16 +690,40 @@ function getWeeksRemainingInCurrentMonth() {
 
 function calculatePyramidGoalMetrics() {
   const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-11
+
+  // Pega os leads visíveis (respeitando se o supervisor estiver inspecionando um consultor)
+  const leads = typeof getVisibleLeads === 'function' ? getVisibleLeads() : state.leads;
   
-  // 1. Somar faturamento de vendas fechadas no mês atual
+  // 1. Somar faturamento de vendas fechadas (estágio 7) no mês atual
   let monthlySalesAchieved = 0;
-  state.leads.forEach(l => {
-    if (l.columnId === 'venda-fechada' || l.stageId === 7) {
-      const val = parseFloat(l.valor) || 0;
-      const leadDate = l.updatedAt || l.createdAt;
-      if (!leadDate || leadDate.startsWith(currentMonthStr)) {
-        monthlySalesAchieved += val;
+  let weeklySalesAchieved = 0;
+
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  leads.forEach(l => {
+    const stage = Number(l.status) || Number(l.stageId);
+    if (stage === 7 || l.columnId === 'venda-fechada') {
+      const val = Number(l.valorConsorcio) || Number(l.valor) || 0;
+      if (val > 0) {
+        const dStr = l.soldAt || l.updatedAt || l.createdAt;
+        let leadDate = now;
+        if (dStr) {
+          const parsed = new Date(dStr);
+          if (!isNaN(parsed.getTime())) leadDate = parsed;
+        }
+
+        // Vendas do mês atual
+        if (leadDate.getFullYear() === currentYear && leadDate.getMonth() === currentMonth) {
+          monthlySalesAchieved += val;
+        }
+
+        // Vendas dos últimos 7 dias
+        if (leadDate >= oneWeekAgo) {
+          weeklySalesAchieved += val;
+        }
       }
     }
   });
@@ -709,21 +735,6 @@ function calculatePyramidGoalMetrics() {
   // 2. Recálculo Dinâmico da Meta Semanal
   const weeksLeft = getWeeksRemainingInCurrentMonth();
   const dynamicWeeklyTarget = remainingMonthlyTarget > 0 ? Math.round(remainingMonthlyTarget / weeksLeft) : 0;
-
-  // Somar vendas da semana atual (últimos 7 dias)
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  let weeklySalesAchieved = 0;
-
-  state.leads.forEach(l => {
-    if (l.columnId === 'venda-fechada' || l.stageId === 7) {
-      const val = parseFloat(l.valor) || 0;
-      const leadDate = l.updatedAt || l.createdAt ? new Date(l.updatedAt || l.createdAt) : new Date();
-      if (leadDate >= oneWeekAgo) {
-        weeklySalesAchieved += val;
-      }
-    }
-  });
 
   const weeklyPct = dynamicWeeklyTarget > 0 ? Math.min(100, Math.round((weeklySalesAchieved / dynamicWeeklyTarget) * 100)) : (monthlySalesAchieved >= monthlyTarget ? 100 : 0);
 
@@ -1841,6 +1852,8 @@ function renderUserHeader() {
 
   if (sidebarContainer) sidebarContainer.innerHTML = html;
   if (headerContainer) headerContainer.innerHTML = html;
+
+  updateDashboardWelcome();
 }
 
 function openAuthModal() {
@@ -3906,9 +3919,38 @@ function renderLeadTimeline(lead) {
 
 function updateDashboardWelcome() {
   const info = getConsultantInfo();
-  const userName = state.inspectingConsultant ? state.inspectingConsultant.name : (info.consultantName || 'Consultor(a)');
+  let userName = '';
+
+  if (state.inspectingConsultant && state.inspectingConsultant.name) {
+    userName = state.inspectingConsultant.name;
+  } else if (info && info.consultantName && info.consultantName !== 'Administrador' && info.consultantName !== 'Consultor') {
+    userName = info.consultantName;
+  }
+
+  if (!userName) {
+    if (state.currentUser) {
+      userName = state.currentUser.displayName || state.currentUser.name || state.currentUser.nome || (state.currentUser.email ? state.currentUser.email.split('@')[0] : 'Consultor');
+    } else {
+      const savedUser = localStorage.getItem('crm_consorcio_auth_user');
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          userName = parsed.displayName || parsed.name || parsed.nome || (parsed.email ? parsed.email.split('@')[0] : 'Consultor');
+        } catch(e) {}
+      }
+    }
+  }
+
+  if (!userName) userName = 'Consultor';
+
+  let displayName = userName;
+  if (displayName.includes(' ')) {
+    displayName = displayName.split(' ')[0];
+  }
+  displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+
   const welcomeHeading = document.getElementById('dashboard-welcome-heading');
   if (welcomeHeading) {
-    welcomeHeading.innerHTML = `Olá, ${escapeHtml(userName)}! 👋`;
+    welcomeHeading.innerHTML = `Olá, ${escapeHtml(displayName)}! 👋`;
   }
 }
