@@ -1566,10 +1566,6 @@ body.light-theme .active-page-badge {
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  background-color: var(--bg-card);
-  z-index: 10;
 }
 
 .modal-header h3 {
@@ -1683,10 +1679,6 @@ body.light-theme .active-page-badge {
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
-  background-color: var(--bg-card);
-  z-index: 10;
 }
 
 /* Mandatory Date Alert Modal Styling */
