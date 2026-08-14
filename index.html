@@ -126,6 +126,31 @@
           <span id="current-date-text">--/--/----</span>
         </div>
 
+        <!-- Central de Notificações -->
+        <div class="notifications-wrapper" style="position: relative;">
+          <button id="btn-notifications" class="btn-icon-notification" onclick="toggleNotificationsPanel(event)" title="Central de Alertas">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span id="notification-badge" class="notification-badge" style="display: none;">0</span>
+          </button>
+
+          <!-- Painel Retrátil de Notificações -->
+          <div id="notifications-panel" class="notifications-dropdown" style="display: none;">
+            <div class="notifications-header">
+              <div class="notifications-title">
+                <span>🔔 Alertas & Lembretes</span>
+                <span id="notifications-count-badge" class="badge-mini">0</span>
+              </div>
+              <button type="button" class="btn-text-sm" onclick="markAllNotificationsRead(event)">Marcar lidas</button>
+            </div>
+            <div id="notifications-list" class="notifications-list">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+        </div>
+
         <!-- Botão Novo Lead (Visível APENAS no Pipeline/Kanban) -->
         <button id="btn-header-new-lead" class="btn btn-primary" onclick="openNewLeadModal()" style="display: none;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -1121,6 +1146,19 @@
         <div class="form-group">
           <label for="lead-notas">Notas da Reunião / Histórico</label>
           <textarea id="lead-notas" rows="3" placeholder="Insira aqui objeções, cotas de interesse ou detalhes das reuniões..."></textarea>
+        </div>
+
+        <!-- Histórico e Timeline Visual de Atividades do Lead -->
+        <div id="lead-timeline-section" class="lead-timeline-section" style="display: none; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+            <h4 style="font-size: 0.9rem; font-weight: 700; margin: 0; color: var(--text-heading); display: flex; align-items: center; gap: 0.5rem;">
+              <span>📜 Histórico & Timeline de Atividades</span>
+            </h4>
+            <span style="font-size: 0.75rem; color: var(--text-muted);" id="lead-timeline-count">0 registros</span>
+          </div>
+          <div id="lead-timeline-list" class="timeline-list">
+            <!-- Timeline renderizada via JS -->
+          </div>
         </div>
 
         <div class="modal-footer">

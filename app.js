@@ -45,7 +45,10 @@ let state = {
   currentUser: null,
   authMode: 'login',
   currentRole: 'owner',
-  inspectingConsultant: null
+  inspectingConsultant: null,
+  notifications: [],
+  unreadNotifications: 0,
+  notificationsPanelOpen: false
 };
 
 // ================= INITIALIZATION & STORAGE ================= //
@@ -68,6 +71,17 @@ function initApp() {
   renderKanban();
   updateRoleUI();
   setupFirebaseAuthListener();
+  updateNotificationsState();
+
+  // Fechar o painel de notificações ao clicar fora dele
+  document.addEventListener('click', (e) => {
+    const wrapper = document.querySelector('.notifications-wrapper');
+    const panel = document.getElementById('notifications-panel');
+    if (panel && wrapper && !wrapper.contains(e.target)) {
+      panel.style.display = 'none';
+      state.notificationsPanelOpen = false;
+    }
+  });
 
   // Fechar modais ao clicar na área escura de fundo (overlay)
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -407,6 +421,7 @@ function saveLeads() {
   renderKanban();
   renderOrigemDropdowns();
   renderReportsView();
+  updateNotificationsState();
 
   if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
     const { db, doc, setDoc } = window.FirebaseService;
@@ -1224,8 +1239,10 @@ function handleDrop(e, targetStageId) {
     };
     showMandatoryDateModal(lead, targetStageId);
   } else {
+    const prevStage = lead.status;
     lead.status = targetStageId;
     lead.columnId = 'stage-' + targetStageId;
+    addLeadHistoryEntry(lead, 'Mudança de Etapa (Kanban)', `Movido para "${getStageName(targetStageId)}"`, 'stage');
     saveLeads();
     renderKanban();
     showToast(`Lead "${lead.nome}" movido para "${getStageName(targetStageId)}"`, 'success');
@@ -1289,11 +1306,13 @@ function confirmMandatoryDate(e) {
   if (lead) {
     lead.status = state.pendingMove.targetStageId;
     lead.proximoContato = newDate;
+    addLeadHistoryEntry(lead, 'Reagendamento & Estágio', `Contato marcado para ${formatDateBr(newDate)} (${getStageName(lead.status)})`, 'reschedule');
     if (notesInput && notesInput.value.trim()) {
       lead.notas = notesInput.value.trim();
+      addLeadHistoryEntry(lead, 'Nota Adicionada', notesInput.value.trim(), 'note');
     }
     saveLeads();
-    showToast(`Data atualizada para ${formatDateBR(newDate)}! Lead reaparecerá no Painel Diário.`, 'success');
+    showToast(`Data atualizada para ${formatDateBr(newDate)}! Lead reaparecerá no Painel Diário.`, 'success');
   }
 
   state.pendingMove = null;
@@ -1319,6 +1338,9 @@ function openNewLeadModal() {
 
   document.getElementById('lead-data').value = getTodayDateString();
 
+  const timelineSection = document.getElementById('lead-timeline-section');
+  if (timelineSection) timelineSection.style.display = 'none';
+
   const modal = document.getElementById('modal-lead');
   if (modal) {
     modal.style.display = 'flex';
@@ -1339,6 +1361,8 @@ function openLeadModal(leadId) {
   document.getElementById('lead-data').value = lead.proximoContato || getTodayDateString();
   document.getElementById('lead-valor').value = lead.valorConsorcio || '';
   document.getElementById('lead-notas').value = lead.notas || '';
+
+  renderLeadTimeline(lead);
 
   const modal = document.getElementById('modal-lead');
   if (modal) {
@@ -1383,6 +1407,10 @@ function handleLeadSubmit(e) {
     if (id) {
       const lead = state.leads.find(l => l.id === id);
       if (lead) {
+        const prevStatus = lead.status;
+        const prevDate = lead.proximoContato;
+        const prevNotes = lead.notas;
+
         lead.nome = nome;
         lead.telefone = telefone;
         lead.origem = origem;
@@ -1391,6 +1419,16 @@ function handleLeadSubmit(e) {
         lead.valorConsorcio = valorConsorcio;
         lead.notas = notas;
         lead.updatedAt = new Date().toISOString();
+
+        if (Number(prevStatus) !== Number(status)) {
+          addLeadHistoryEntry(lead, 'Mudança de Etapa', `Etapa alterada para "${getStageName(status)}"`, 'stage');
+        }
+        if (prevDate !== proximoContato) {
+          addLeadHistoryEntry(lead, 'Reagendamento', `Contato reagendado para ${formatDateBr(proximoContato)}`, 'reschedule');
+        }
+        if (prevNotes !== notas && notas) {
+          addLeadHistoryEntry(lead, 'Nota/Histórico', notas, 'note');
+        }
       }
       showToast(`Lead "${nome}" atualizado!`, 'success');
     } else {
@@ -1409,6 +1447,12 @@ function handleLeadSubmit(e) {
         consultantName: info.consultantName,
         teamName: info.teamName
       };
+
+      addLeadHistoryEntry(newLead, 'Lead Cadastrado', `Cadastrado na origem ${origem} (${getStageName(status)})`, 'create');
+      if (notas) {
+        addLeadHistoryEntry(newLead, 'Nota Inicial', notas, 'note');
+      }
+
       state.leads.unshift(newLead);
       showToast(`Novo lead "${nome}" cadastrado com sucesso!`, 'success');
     }
@@ -3436,4 +3480,221 @@ function updateThemeIcon(theme) {
   if (iconEl) {
     iconEl.textContent = (theme === 'light') ? '☀️' : '🌙';
   }
+}
+
+// ================= CENTRAL DE NOTIFICAÇÕES & TIMELINE DO LEAD ================= //
+
+function updateNotificationsState() {
+  if (!state.leads) return;
+  const today = getTodayDateString();
+  const now = new Date();
+  const items = [];
+
+  state.leads.forEach(lead => {
+    // 1. Follow-up Atrasado (excluindo venda fechada - status 7)
+    if (lead.proximoContato && lead.proximoContato < today && Number(lead.status) !== 7) {
+      items.push({
+        id: 'notif_overdue_' + lead.id,
+        leadId: lead.id,
+        type: 'overdue',
+        icon: '⚠️',
+        title: 'Follow-up Atrasado',
+        message: `O lead <strong>${escapeHtml(lead.nome)}</strong> está com contato atrasado (${formatDateBr(lead.proximoContato)}).`,
+        timestamp: lead.proximoContato,
+        read: false
+      });
+    }
+    // 2. Follow-up do Dia
+    else if (lead.proximoContato === today && Number(lead.status) !== 7) {
+      items.push({
+        id: 'notif_today_' + lead.id,
+        leadId: lead.id,
+        type: 'today',
+        icon: '📅',
+        title: 'Contato Hoje',
+        message: `Lembrete: entrar em contato hoje com <strong>${escapeHtml(lead.nome)}</strong>.`,
+        timestamp: today,
+        read: false
+      });
+    }
+
+    // 3. Lead Parado no 1º Contato (> 48 horas)
+    if (Number(lead.status) === 1 && lead.createdAt) {
+      const createdDate = new Date(lead.createdAt);
+      const diffHours = Math.floor((now - createdDate) / (1000 * 60 * 60));
+      if (diffHours >= 48) {
+        items.push({
+          id: 'notif_stale_' + lead.id,
+          leadId: lead.id,
+          type: 'stale',
+          icon: '⏳',
+          title: 'Lead Sem Interação',
+          message: `<strong>${escapeHtml(lead.nome)}</strong> está há ${Math.floor(diffHours / 24)} dias na etapa inicial sem movimentação.`,
+          timestamp: lead.createdAt,
+          read: false
+        });
+      }
+    }
+  });
+
+  state.notifications = items;
+  state.unreadNotifications = items.filter(n => !n.read).length;
+  renderNotificationsUI();
+}
+
+function renderNotificationsUI() {
+  const badge = document.getElementById('notification-badge');
+  const countBadge = document.getElementById('notifications-count-badge');
+  const list = document.getElementById('notifications-list');
+
+  const unreadCount = state.notifications ? state.notifications.filter(n => !n.read).length : 0;
+
+  if (badge) {
+    if (unreadCount > 0) {
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  if (countBadge) {
+    countBadge.textContent = `${unreadCount} nova${unreadCount !== 1 ? 's' : ''}`;
+  }
+
+  if (!list) return;
+
+  if (!state.notifications || state.notifications.length === 0) {
+    list.innerHTML = `
+      <div class="notifications-empty">
+        <span style="font-size: 1.8rem;">🎉</span>
+        <span>Excelente! Não há compromissos atrasados nem pendências de leads no momento.</span>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = state.notifications.map(n => `
+    <div class="notification-item ${n.read ? '' : 'unread'}" onclick="handleNotificationClick('${n.leadId}', '${n.id}')">
+      <div class="notification-icon-wrap ${n.type}">
+        ${n.icon}
+      </div>
+      <div class="notification-body">
+        <div class="notification-msg">${n.message}</div>
+        <div class="notification-time">${n.title}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleNotificationsPanel(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('notifications-panel');
+  if (!panel) return;
+
+  const isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  state.notificationsPanelOpen = !isOpen;
+}
+
+function markAllNotificationsRead(e) {
+  if (e) e.stopPropagation();
+  if (state.notifications) {
+    state.notifications.forEach(n => n.read = true);
+  }
+  renderNotificationsUI();
+}
+
+function handleNotificationClick(leadId, notifId) {
+  if (state.notifications) {
+    const notif = state.notifications.find(n => n.id === notifId);
+    if (notif) notif.read = true;
+  }
+  renderNotificationsUI();
+
+  const panel = document.getElementById('notifications-panel');
+  if (panel) panel.style.display = 'none';
+
+  if (leadId) {
+    openLeadModal(leadId);
+  }
+}
+
+function formatDateBr(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return dateStr;
+}
+
+function addLeadHistoryEntry(lead, action, details = '', type = 'stage') {
+  if (!lead) return;
+  if (!lead.history) lead.history = [];
+
+  const currentUserInfo = getConsultantInfo();
+  const entry = {
+    id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    timestamp: new Date().toISOString(),
+    action,
+    details,
+    type,
+    author: currentUserInfo.consultantName || 'Consultor'
+  };
+
+  lead.history.unshift(entry);
+}
+
+function renderLeadTimeline(lead) {
+  const container = document.getElementById('lead-timeline-section');
+  const list = document.getElementById('lead-timeline-list');
+  const countEl = document.getElementById('lead-timeline-count');
+
+  if (!container || !list) return;
+
+  if (!lead || !lead.id) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+
+  // Se não houver histórico, cria o registro padrão de criação
+  if (!lead.history || lead.history.length === 0) {
+    lead.history = [{
+      id: 'hist_init_' + Date.now(),
+      timestamp: lead.createdAt || new Date().toISOString(),
+      action: 'Lead Cadastrado',
+      details: `Lead recebido via ${lead.origem || 'Direto'}.`,
+      type: 'create',
+      author: lead.consultantName || 'Consultor'
+    }];
+  }
+
+  const history = lead.history;
+
+  if (countEl) {
+    countEl.textContent = `${history.length} registro${history.length !== 1 ? 's' : ''}`;
+  }
+
+  list.innerHTML = history.map(item => {
+    let formattedDate = item.timestamp;
+    try {
+      formattedDate = new Date(item.timestamp).toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) {}
+
+    return `
+      <div class="timeline-item">
+        <div class="timeline-dot ${item.type || 'stage'}"></div>
+        <div class="timeline-header">
+          <span class="timeline-action">${escapeHtml(item.action)}</span>
+          <span class="timeline-date">${formattedDate}</span>
+        </div>
+        ${item.details ? `<div class="timeline-details">${escapeHtml(item.details)}</div>` : ''}
+        <div class="timeline-author">por ${escapeHtml(item.author || 'Consultor')}</div>
+      </div>
+    `;
+  }).join('');
 }
