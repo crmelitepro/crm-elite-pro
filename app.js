@@ -2337,6 +2337,7 @@ function updateRoleUI() {
   }
 
   updateRankingPermissionsUI();
+  updateDashboardWelcome();
 }
 
 // Inspeção de Consultor Individual (Drill-Down)
@@ -2349,6 +2350,7 @@ function inspectConsultant(consultantName, consultantId) {
   if (nameEl) nameEl.textContent = consultantName;
   if (banner) banner.style.display = 'flex';
 
+  updateDashboardWelcome();
   showToast(`👁️ Modo de inspeção ativo: Visualizando CRM de ${consultantName}`, 'info');
   switchTab('dashboard');
 }
@@ -2358,6 +2360,7 @@ function exitInspectionMode() {
   const banner = document.getElementById('inspection-banner');
   if (banner) banner.style.display = 'none';
 
+  updateDashboardWelcome();
   showToast('Restaurado ao seu painel pessoal.', 'info');
   switchTab('dashboard');
 }
@@ -2657,6 +2660,7 @@ async function handleUpdateProfile(e) {
 
   renderProfileView();
   renderUserHeader();
+  updateDashboardWelcome();
   showToast('💾 Dados do perfil salvos com sucesso!', 'success');
 }
 
@@ -3697,4 +3701,13 @@ function renderLeadTimeline(lead) {
       </div>
     `;
   }).join('');
+}
+
+function updateDashboardWelcome() {
+  const info = getConsultantInfo();
+  const userName = state.inspectingConsultant ? state.inspectingConsultant.name : (info.consultantName || 'Consultor(a)');
+  const welcomeHeading = document.getElementById('dashboard-welcome-heading');
+  if (welcomeHeading) {
+    welcomeHeading.innerHTML = `Olá, ${escapeHtml(userName)}! 👋`;
+  }
 }

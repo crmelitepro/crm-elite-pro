@@ -846,8 +846,12 @@ body.light-theme .active-page-badge {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1.5rem;
   margin-bottom: 1.5rem;
   box-shadow: var(--shadow-main);
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .banner-text h2 {
@@ -862,11 +866,27 @@ body.light-theme .active-page-badge {
 }
 
 .daily-progress-widget {
-  min-width: 320px;
+  min-width: 280px;
+  max-width: 100%;
+  box-sizing: border-box;
   background-color: rgba(0, 0, 0, 0.3);
   padding: 1rem 1.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
+}
+
+@media (max-width: 900px) {
+  .dashboard-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1.25rem;
+    gap: 1.25rem;
+  }
+
+  .daily-progress-widget {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 .widget-header {
