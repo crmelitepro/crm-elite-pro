@@ -119,10 +119,14 @@ function checkAuthGate() {
 
     // Enriquecer dados do perfil com registros do Firestore/LocalStorage (CPF, Telefone, Data Nasc)
     if (state.currentUser) {
+      const uid = state.currentUser.uid || state.currentUser.id;
       fetchAndEnrichUserProfile(state.currentUser).then(() => {
         renderUserHeader();
         if (state.activeTab === 'profile') renderProfileView();
       });
+      if (uid) {
+        syncUserDataFromCloud(uid);
+      }
     }
 
     // Sincronizar o cargo do usuário autenticado no estado local
@@ -418,7 +422,14 @@ function saveGoals() {
       const todayStr = getTodayDateString();
       const goalsRef = doc(db, 'users', info.consultantUid, 'config', 'goals');
       const storeGoalRef = doc(db, 'store_daily_goals', `${info.consultantUid}_${todayStr}`);
-      const payload = { goalConfigs: state.goalConfigs, goals: state.goals, ...info, date: todayStr, updatedAt: new Date().toISOString() };
+      const payload = {
+        monthlyTarget: state.monthlyTarget || 500000,
+        goalConfigs: state.goalConfigs,
+        goals: state.goals,
+        ...info,
+        date: todayStr,
+        updatedAt: new Date().toISOString()
+      };
 
       setDoc(goalsRef, payload, { merge: true });
       setDoc(storeGoalRef, payload, { merge: true });
@@ -427,6 +438,65 @@ function saveGoals() {
     }
   }
 }
+
+// Sincronização em tempo real multidispositivo (Celular / Computador)
+async function syncUserDataFromCloud(uid) {
+  if (!uid || !window.FirebaseService || !window.FirebaseService.db) return;
+
+  try {
+    const { db, doc, collection, getDocs, getDoc } = window.FirebaseService;
+    const todayStr = getTodayDateString();
+
+    // 1. Sincroniza Metas e Alvos da Nuvem
+    const goalsRef = doc(db, 'users', uid, 'config', 'goals');
+    const storeGoalRef = doc(db, 'store_daily_goals', `${uid}_${todayStr}`);
+
+    const [goalsSnap, storeGoalSnap] = await Promise.all([
+      getDoc(goalsRef),
+      getDoc(storeGoalRef)
+    ]);
+
+    if (goalsSnap.exists()) {
+      const gData = goalsSnap.data();
+      if (gData.monthlyTarget) state.monthlyTarget = Number(gData.monthlyTarget);
+      if (Array.isArray(gData.goalConfigs)) state.goalConfigs = gData.goalConfigs;
+    }
+
+    if (storeGoalSnap.exists()) {
+      const sData = storeGoalSnap.data();
+      if (sData.goals && sData.date === todayStr) {
+        state.goals = { ...state.goals, ...sData.goals };
+        localStorage.setItem(getUserStorageKey(STORAGE_KEYS.GOALS), JSON.stringify(state.goals));
+      }
+    }
+
+    // 2. Sincroniza Leads da Nuvem
+    const leadsSnap = await getDocs(collection(db, 'users', uid, 'leads'));
+    if (!leadsSnap.empty) {
+      const cloudLeads = [];
+      leadsSnap.forEach(d => cloudLeads.push(d.data()));
+      if (cloudLeads.length > 0) {
+        state.leads = cloudLeads;
+        localStorage.setItem(getUserStorageKey(STORAGE_KEYS.LEADS), JSON.stringify(state.leads));
+      }
+    }
+
+    // Renderiza telas com os dados sincronizados em tempo real
+    renderGoals();
+    renderKanban();
+    renderFollowups();
+    updateDashboardWelcome();
+  } catch (err) {
+    console.warn('Erro ao sincronizar dados multidispositivo da nuvem:', err);
+  }
+}
+
+window.addEventListener('focus', function() {
+  if (state.currentUser) {
+    const uid = state.currentUser.uid || state.currentUser.id;
+    if (uid) syncUserDataFromCloud(uid);
+  }
+});
 
 function loadLeads() {
   const data = localStorage.getItem(getUserStorageKey(STORAGE_KEYS.LEADS));
