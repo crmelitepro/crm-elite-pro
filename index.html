@@ -1082,82 +1082,84 @@
     <div class="modal-card">
       
       <!-- TELA 1: FORMULÁRIO DE EDIÇÃO DO LEAD -->
-      <div id="lead-edit-view">
-        <div class="modal-header">
+      <div id="lead-edit-view" style="display: flex; flex-direction: column; max-height: calc(85vh - 2rem); min-height: 0;">
+        <div class="modal-header" style="flex-shrink: 0;">
           <h3 id="modal-lead-title">Cadastrar Novo Lead</h3>
           <button class="modal-close-btn" onclick="closeLeadModal()">&times;</button>
         </div>
         
-        <form id="form-lead" onsubmit="handleLeadSubmit(event)">
-          <input type="hidden" id="lead-id">
+        <form id="form-lead" onsubmit="handleLeadSubmit(event)" style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+          <div class="modal-form-scroll-body" style="flex: 1; overflow-y: auto; padding-right: 0.35rem; margin-right: -0.15rem;">
+            <input type="hidden" id="lead-id">
 
-          <div class="form-group">
-            <label for="lead-nome">Nome do Cliente *</label>
-            <input type="text" id="lead-nome" required placeholder="Ex: Roberto Silva">
-          </div>
-
-          <div class="form-row">
             <div class="form-group">
-              <label for="lead-telefone">Telefone (WhatsApp) *</label>
-              <input type="text" id="lead-telefone" required placeholder="(11) 99876-5432" oninput="maskPhone(this)">
+              <label for="lead-nome">Nome do Cliente *</label>
+              <input type="text" id="lead-nome" required placeholder="Ex: Roberto Silva">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="lead-telefone">Telefone (WhatsApp) *</label>
+                <input type="text" id="lead-telefone" required placeholder="(11) 99876-5432" oninput="maskPhone(this)">
+              </div>
+
+              <div class="form-group">
+                <label for="lead-origem">Origem do Lead *</label>
+                <select id="lead-origem" required>
+                  <option value="Ações">Ações</option>
+                  <option value="AVA">AVA</option>
+                  <option value="Google">Google</option>
+                  <option value="Network">Network</option>
+                  <option value="P.A.P">P.A.P</option>
+                  <option value="Parceiros">Parceiros</option>
+                  <option value="Plantão Loja">Plantão Loja</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="lead-status">Etapa do Funil *</label>
+                <select id="lead-status" required>
+                  <option value="1">1. Contato Captado</option>
+                  <option value="2">2. 1ª Reunião (Sondagem)</option>
+                  <option value="3">3. Montando Proposta/Cadastro</option>
+                  <option value="4">4. 2ª Reunião (Apresentação)</option>
+                  <option value="5">5. Aguardando Contrato/Pagamento</option>
+                  <option value="6">6. Stand-by (Pensando)</option>
+                  <option value="7">7. Venda Fechada 🏆</option>
+                  <option value="8">8. Lead Perdido / Base de Disparos 📢</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="lead-data">Próximo Contato *</label>
+                <input type="date" id="lead-data" required>
+              </div>
             </div>
 
             <div class="form-group">
-              <label for="lead-origem">Origem do Lead *</label>
-              <select id="lead-origem" required>
-                <option value="Ações">Ações</option>
-                <option value="AVA">AVA</option>
-                <option value="Google">Google</option>
-                <option value="Network">Network</option>
-                <option value="P.A.P">P.A.P</option>
-                <option value="Parceiros">Parceiros</option>
-                <option value="Plantão Loja">Plantão Loja</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="lead-status">Etapa do Funil *</label>
-              <select id="lead-status" required>
-                <option value="1">1. Contato Captado</option>
-                <option value="2">2. 1ª Reunião (Sondagem)</option>
-                <option value="3">3. Montando Proposta/Cadastro</option>
-                <option value="4">4. 2ª Reunião (Apresentação)</option>
-                <option value="5">5. Aguardando Contrato/Pagamento</option>
-                <option value="6">6. Stand-by (Pensando)</option>
-                <option value="7">7. Venda Fechada 🏆</option>
-                <option value="8">8. Lead Perdido / Base de Disparos 📢</option>
-              </select>
+              <label for="lead-valor">Valor Estimado do Consórcio (R$)</label>
+              <input type="number" id="lead-valor" placeholder="Ex: 250000" step="1000">
             </div>
 
             <div class="form-group">
-              <label for="lead-data">Próximo Contato *</label>
-              <input type="date" id="lead-data" required>
+              <label for="lead-notas">Notas da Reunião (Nota Principal)</label>
+              <textarea id="lead-notas" rows="3" placeholder="Insira aqui objeções, cotas de interesse ou detalhes das reuniões..." onkeydown="handleNotasKeyDown(event)"></textarea>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label for="lead-valor">Valor Estimado do Consórcio (R$)</label>
-            <input type="number" id="lead-valor" placeholder="Ex: 250000" step="1000">
-          </div>
-
-          <div class="form-group">
-            <label for="lead-notas">Notas da Reunião (Nota Principal)</label>
-            <textarea id="lead-notas" rows="3" placeholder="Insira aqui objeções, cotas de interesse ou detalhes das reuniões..." onkeydown="handleNotasKeyDown(event)"></textarea>
-          </div>
-
-          <!-- Bloco Separado para Última Nota de Agendamento -->
-          <div id="lead-reschedule-notes-section" style="display: none; margin-bottom: 1rem;">
-            <label style="font-size: 0.82rem; font-weight: 600; color: #f59e0b; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem;">
-              <span>⏰ Última Nota de Agendamento (Separada)</span>
-            </label>
-            <div id="lead-last-reschedule-note-display" style="font-size: 0.83rem; color: var(--text-main); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); padding: 0.6rem 0.85rem; border-radius: var(--radius-md); line-height: 1.45;">
+            <!-- Bloco Separado para Última Nota de Agendamento -->
+            <div id="lead-reschedule-notes-section" style="display: none; margin-bottom: 1rem;">
+              <label style="font-size: 0.82rem; font-weight: 600; color: #f59e0b; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem;">
+                <span>⏰ Última Nota de Agendamento</span>
+              </label>
+              <div id="lead-last-reschedule-note-display" style="font-size: 0.83rem; color: var(--text-main); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); padding: 0.6rem 0.85rem; border-radius: var(--radius-md); line-height: 1.45;">
+              </div>
             </div>
           </div>
 
           <!-- Rodapé com os 4 botões na mesma linha -->
-          <div class="modal-footer" style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+          <div class="modal-footer" style="display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <button type="button" id="btn-toggle-timeline" class="btn btn-outline small" onclick="openLeadTimelineOverlay()" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3); font-weight: 600;">
                 📜 Ver Timeline
