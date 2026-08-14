@@ -276,7 +276,48 @@ function updateCurrentDateDisplay() {
   }
 }
 
-// Check if midnight passed and reset goals automatically
+function archiveDailyGoalsHistory(dateStr, goalsData) {
+  if (!dateStr || !goalsData) return;
+  const historyKey = getUserStorageKey('crm_daily_goals_history');
+  let history = [];
+  const saved = localStorage.getItem(historyKey);
+  if (saved) {
+    try { history = JSON.parse(saved); } catch(e) {}
+  }
+
+  let totalDone = 0;
+  let totalTarget = 0;
+  state.goalConfigs.forEach(cfg => {
+    const count = goalsData[cfg.id] || 0;
+    totalDone += count;
+    totalTarget += (cfg.target || 30);
+  });
+
+  const entry = {
+    id: 'hist_goals_' + dateStr + '_' + Date.now(),
+    date: dateStr,
+    goals: { ...goalsData },
+    totalDone,
+    totalTarget,
+    scorePct: totalTarget > 0 ? Math.min(100, Math.round((totalDone / totalTarget) * 100)) : 0,
+    timestamp: new Date().toISOString()
+  };
+
+  history.unshift(entry);
+  localStorage.setItem(historyKey, JSON.stringify(history));
+
+  if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
+    try {
+      const { db, doc, setDoc } = window.FirebaseService;
+      const info = getConsultantInfo();
+      setDoc(doc(db, 'users', info.consultantUid, 'daily_goals_history', dateStr), entry);
+    } catch(err) {
+      console.warn('Erro ao salvar histórico diário na nuvem:', err);
+    }
+  }
+}
+
+// Check if midnight passed and reset goals automatically with history archiving
 function checkAndResetDailyGoals() {
   const todayStr = getTodayDateString();
   const lastResetKey = getUserStorageKey(STORAGE_KEYS.LAST_DATE);
@@ -285,12 +326,11 @@ function checkAndResetDailyGoals() {
 
   const savedGoals = localStorage.getItem(goalsKey);
   if (savedGoals) {
-    state.goals = JSON.parse(savedGoals);
+    try { state.goals = JSON.parse(savedGoals); } catch(e) { state.goals = {}; }
   } else {
     state.goals = {};
   }
 
-  // Garantir que todos os IDs de metas configuradas existam no estado de metas
   state.goalConfigs.forEach(cfg => {
     if (state.goals[cfg.id] === undefined) {
       state.goals[cfg.id] = 0;
@@ -298,6 +338,11 @@ function checkAndResetDailyGoals() {
   });
 
   if (lastReset !== todayStr) {
+    // Salva o histórico do dia encerrado antes de zerar visualmente para o novo dia
+    if (lastReset && Object.keys(state.goals).length > 0) {
+      archiveDailyGoalsHistory(lastReset, state.goals);
+    }
+
     // Novo dia! Zerar contadores diários
     state.goalConfigs.forEach(cfg => {
       state.goals[cfg.id] = 0;
@@ -306,7 +351,7 @@ function checkAndResetDailyGoals() {
     localStorage.setItem(lastResetKey, todayStr);
     
     if (lastReset) {
-      showToast('🌅 Novo dia iniciado! Seus contadores de metas foram zerados.', 'info');
+      showToast('🌅 Novo dia iniciado! Os registros de ontem foram arquivados com segurança no histórico.', 'info');
     }
   }
 }
@@ -928,13 +973,61 @@ function renderOrigemDropdowns() {
 
 // ================= MODAL CONFIGURAR METAS & ORIGENS ================= //
 
-function openGoalsConfigModal() {
-  renderGoalsConfigList();
-  document.getElementById('modal-goals-config').classList.add('active');
+// Modais Exclusivos de Configuração de Metas
+function openMonthlyTargetModal() {
+  const modal = document.getElementById('modal-monthly-target-only');
+  const input = document.getElementById('monthly-target-input');
+  if (input) {
+    const val = state.monthlyTarget || 500000;
+    input.value = 'R$ ' + val.toLocaleString('pt-BR');
+  }
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
 }
 
-function closeGoalsConfigModal() {
-  document.getElementById('modal-goals-config').classList.remove('active');
+function closeMonthlyTargetModal() {
+  const modal = document.getElementById('modal-monthly-target-only');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+function handleMonthlyTargetSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const input = document.getElementById('monthly-target-input');
+  if (!input) return;
+
+  const newTarget = parseMoneyInputValue(input.value);
+  if (!newTarget || newTarget <= 0) {
+    alert('Por favor, digite um valor de meta mensal válido!');
+    return;
+  }
+
+  state.monthlyTarget = newTarget;
+  saveMonthlyTarget(newTarget);
+  closeMonthlyTargetModal();
+  renderGoals();
+  showToast(`🎯 Meta Mensal atualizada para R$ ${newTarget.toLocaleString('pt-BR')}!`, 'success');
+}
+
+function openDailyGoalsModal() {
+  renderGoalsConfigList();
+  const modal = document.getElementById('modal-daily-goals-only');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
+}
+
+function closeDailyGoalsModal() {
+  const modal = document.getElementById('modal-daily-goals-only');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function renderGoalsConfigList() {
