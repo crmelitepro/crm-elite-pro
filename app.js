@@ -73,6 +73,7 @@ function initApp() {
   updateRoleUI();
   setupFirebaseAuthListener();
   updateNotificationsState();
+  setupHorizontalWheelScroll();
 
   // Fechar o painel de notificações ao clicar fora dele
   document.addEventListener('click', (e) => {
@@ -99,6 +100,19 @@ function initApp() {
       document.querySelectorAll('.modal-overlay.active:not(.mandatory)').forEach(m => m.classList.remove('active'));
     }
   });
+}
+
+// Converte a rolagem vertical do mouse wheel em rolagem horizontal nos painéis horizontais
+function setupHorizontalWheelScroll() {
+  document.addEventListener('wheel', (e) => {
+    const container = e.target.closest('.kanban-board, .time-shortcuts, .horizontal-scroll-wrap, .pyramid-goals-grid');
+    if (!container) return;
+
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && container.scrollWidth > container.clientWidth) {
+      e.preventDefault();
+      container.scrollLeft += e.deltaY * 1.25;
+    }
+  }, { passive: false });
 }
 
 function checkAuthGate() {
