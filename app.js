@@ -102,15 +102,36 @@ function initApp() {
   });
 }
 
-// Converte a rolagem vertical do mouse wheel em rolagem horizontal nos painéis horizontais
+// Converte a rolagem vertical do mouse wheel em rolagem horizontal apenas ao passar sobre a barra inferior ou áreas de navegação horizontal
 function setupHorizontalWheelScroll() {
   document.addEventListener('wheel', (e) => {
-    const container = e.target.closest('.kanban-board, .time-shortcuts, .horizontal-scroll-wrap, .pyramid-goals-grid');
-    if (!container) return;
+    // Se estiver sobre modais, formulários, timeline ou textarea, mantém o scroll vertical nativo
+    if (e.target.closest('.modal-body, .modal-form-scroll-body, .timeline-list, textarea, input')) {
+      return;
+    }
 
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && container.scrollWidth > container.clientWidth) {
-      e.preventDefault();
-      container.scrollLeft += e.deltaY * 1.25;
+    const kanbanBoard = e.target.closest('.kanban-board');
+    if (kanbanBoard) {
+      const rect = kanbanBoard.getBoundingClientRect();
+      const isOverBottomBar = (e.clientY >= rect.bottom - 50); // Zonas de 50px da barra de rolagem horizontal inferior
+      const isOutsideCards = !e.target.closest('.column-cards');
+
+      // Ativa rolagem horizontal SOMENTE se o ponteiro estiver na barra inferior ou em áreas vazias fora dos cards
+      if ((isOverBottomBar || isOutsideCards) && kanbanBoard.scrollWidth > kanbanBoard.clientWidth) {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          e.preventDefault();
+          kanbanBoard.scrollLeft += e.deltaY * 1.3;
+        }
+      }
+      return;
+    }
+
+    const timeShortcuts = e.target.closest('.time-shortcuts, .horizontal-scroll-wrap');
+    if (timeShortcuts && timeShortcuts.scrollWidth > timeShortcuts.clientWidth) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        timeShortcuts.scrollLeft += e.deltaY * 1.25;
+      }
     }
   }, { passive: false });
 }
