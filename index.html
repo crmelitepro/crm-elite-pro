@@ -1198,6 +1198,25 @@
     </div>
   </div>
 
+  <!-- Modal 1.5: Personalizado de Confirmação de Exclusão de Lead -->
+  <div id="modal-confirm-delete" class="modal-overlay">
+    <div class="modal-card alert-border-danger" style="max-width: 440px; text-align: center; padding: 2rem 1.5rem;">
+      <div style="width: 56px; height: 56px; background: rgba(244, 63, 94, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; border: 1px solid rgba(244, 63, 94, 0.3);">
+        <span style="font-size: 1.8rem;">🚨</span>
+      </div>
+      <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-heading);">Excluir Lead Permanentemente?</h3>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5;" id="confirm-delete-lead-desc">
+        Tem certeza que deseja excluir este lead? Esta ação não poderá ser desfeita.
+      </p>
+      <div style="display: flex; gap: 0.75rem; justify-content: center;">
+        <button type="button" class="btn btn-outline" onclick="closeConfirmDeleteModal()" style="flex: 1; font-weight: 600;">Cancelar</button>
+        <button type="button" class="btn btn-rose" onclick="confirmExecuteLeadDeletion()" style="flex: 1; background: linear-gradient(135deg, #f43f5e, #e11d48); color: #fff; font-weight: 700; border: none; box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4);">
+          🗑️ Sim, Excluir
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal 2: OBRIGATÓRIO de Reagendamento (Contato Captado & Stand-by) -->
   <div id="modal-mandatory-date" class="modal-overlay mandatory">
     <div class="modal-card alert-border">

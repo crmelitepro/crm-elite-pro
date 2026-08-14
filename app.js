@@ -1443,29 +1443,47 @@ function closeLeadModal() {
   }
 }
 
-async function handleDeleteLeadWithDoubleConfirmation() {
+let leadToDeleteId = null;
+
+function handleDeleteLeadWithDoubleConfirmation() {
   const leadId = document.getElementById('lead-id').value;
   if (!leadId) return;
 
   const lead = state.leads.find(l => l.id === leadId);
   if (!lead) return;
 
-  // 1ª CONFIRMAÇÃO
-  const step1 = confirm(`⚠️ 1ª CONFIRMAÇÃO:\nDeseja realmente EXCLUIR o lead "${lead.nome}"?`);
-  if (!step1) return;
+  leadToDeleteId = lead.id;
 
-  // 2ª CONFIRMAÇÃO EXPLÍCITA
-  const step2 = confirm(`🚨 2ª CONFIRMAÇÃO FINAL DE SEGURANÇA:\n\nTem certeza ABSOLUTA de que deseja excluir permanentemente o lead "${lead.nome}"?\n\nEsta ação NÃO poderá ser desfeita e removerá o cadastro do sistema.`);
-  if (!step2) {
-    showToast('Exclusão cancelada. O lead foi mantido com segurança.', 'info');
-    return;
+  const descEl = document.getElementById('confirm-delete-lead-desc');
+  if (descEl) {
+    descEl.innerHTML = `Tem certeza que deseja excluir o lead <strong>"${escapeHtml(lead.nome)}"</strong>?<br><span style="font-size:0.82rem; color:#f43f5e; margin-top:0.4rem; display:inline-block;">Esta ação não poderá ser desfeita.</span>`;
   }
 
-  // Executa exclusão
-  const name = lead.nome;
+  const modal = document.getElementById('modal-confirm-delete');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('active');
+  }
+}
+
+function closeConfirmDeleteModal() {
+  leadToDeleteId = null;
+  const modal = document.getElementById('modal-confirm-delete');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+async function confirmExecuteLeadDeletion() {
+  if (!leadToDeleteId) return;
+
+  const leadId = leadToDeleteId;
+  const lead = state.leads.find(l => l.id === leadId);
+  const name = lead ? lead.nome : 'Lead';
+
   state.leads = state.leads.filter(l => l.id !== leadId);
 
-  // Remove do Firestore se ativado
   if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
     try {
       const { db, doc, deleteDoc } = window.FirebaseService;
@@ -1478,6 +1496,7 @@ async function handleDeleteLeadWithDoubleConfirmation() {
   }
 
   saveLeads();
+  closeConfirmDeleteModal();
   closeLeadModal();
   showToast(`🗑️ Lead "${name}" foi excluído permanentemente.`, 'danger');
 }
