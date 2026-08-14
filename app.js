@@ -25,13 +25,13 @@ const KANBAN_STAGES = [
 
 // Default Goal Configurations
 const DEFAULT_GOAL_CONFIGS = [
-  { id: 'instagram', name: 'Mensagens Instagram', icon: 'instagram', target: 30, isLeadSource: true, origName: 'Instagram' },
-  { id: 'facebook', name: 'Mensagens Facebook', icon: 'facebook', target: 25, isLeadSource: true, origName: 'Facebook' },
-  { id: 'linkedin', name: 'Mensagens LinkedIn', icon: 'linkedin', target: 30, isLeadSource: true, origName: 'LinkedIn' },
-  { id: 'whatsapp', name: 'Mensagens WhatsApp', icon: 'whatsapp', target: 30, isLeadSource: true, origName: 'WhatsApp' },
-  { id: 'telefones', name: 'Telefones Captados', icon: 'telefones', target: 10, isLeadSource: true, origName: 'Telefones' },
-  { id: 'reunioes', name: 'Reuniões Realizadas', icon: 'reunioes', target: 2, isLeadSource: false, origName: 'Reuniões' },
-  { id: 'indicacao', name: 'Indicações Recebidas', icon: 'indicacao', target: 5, isLeadSource: true, origName: 'Indicação' }
+  { id: 'acoes', name: 'Ações', icon: 'generic', target: 20, isLeadSource: true, origName: 'Ações' },
+  { id: 'ava', name: 'AVA', icon: 'generic', target: 20, isLeadSource: true, origName: 'AVA' },
+  { id: 'google', name: 'Google', icon: 'google', target: 25, isLeadSource: true, origName: 'Google' },
+  { id: 'network', name: 'Network', icon: 'reunioes', target: 15, isLeadSource: true, origName: 'Network' },
+  { id: 'pap', name: 'P.A.P', icon: 'telefones', target: 30, isLeadSource: true, origName: 'P.A.P' },
+  { id: 'parceiros', name: 'Parceiros', icon: 'indicacao', target: 10, isLeadSource: true, origName: 'Parceiros' },
+  { id: 'plantao_loja', name: 'Plantão Loja', icon: 'reunioes', target: 10, isLeadSource: true, origName: 'Plantão Loja' }
 ];
 
 // Initial State Objects
@@ -832,11 +832,8 @@ function renderOrigemDropdowns() {
     }
   });
 
-  if (!origensMap.has('Instagram')) origensMap.set('Instagram', 'Instagram');
-  if (!origensMap.has('Facebook')) origensMap.set('Facebook', 'Facebook');
-  if (!origensMap.has('LinkedIn')) origensMap.set('LinkedIn', 'LinkedIn');
-  if (!origensMap.has('WhatsApp')) origensMap.set('WhatsApp', 'WhatsApp');
-  if (!origensMap.has('Indicação')) origensMap.set('Indicação', 'Indicação');
+  const OFFICIAL_ORIGENS = ['Ações', 'AVA', 'Google', 'Network', 'P.A.P', 'Parceiros', 'Plantão Loja'];
+  OFFICIAL_ORIGENS.forEach(o => origensMap.set(o, o));
 
   state.leads.forEach(l => {
     if (l.origem && !origensMap.has(l.origem)) {
@@ -1369,6 +1366,11 @@ function openNewLeadModal() {
 
   document.getElementById('lead-data').value = getTodayDateString();
 
+  const actionsBar = document.getElementById('lead-actions-bar');
+  if (actionsBar) actionsBar.style.display = 'none';
+  const deleteBtn = document.getElementById('btn-delete-lead');
+  if (deleteBtn) deleteBtn.style.display = 'none';
+
   const timelineSection = document.getElementById('lead-timeline-section');
   if (timelineSection) timelineSection.style.display = 'none';
 
@@ -1393,6 +1395,15 @@ function openLeadModal(leadId) {
   document.getElementById('lead-valor').value = lead.valorConsorcio || '';
   document.getElementById('lead-notas').value = lead.notas || '';
 
+  const actionsBar = document.getElementById('lead-actions-bar');
+  if (actionsBar) actionsBar.style.display = 'flex';
+  const deleteBtn = document.getElementById('btn-delete-lead');
+  if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+  const toggleBtn = document.getElementById('btn-toggle-timeline');
+  if (toggleBtn) toggleBtn.textContent = '📜 Ver Timeline & Histórico';
+
+  const timelineSection = document.getElementById('lead-timeline-section');
+  if (timelineSection) timelineSection.style.display = 'none';
   renderLeadTimeline(lead);
 
   const modal = document.getElementById('modal-lead');
@@ -1400,6 +1411,60 @@ function openLeadModal(leadId) {
     modal.style.display = 'flex';
     modal.classList.add('active');
   }
+}
+
+function toggleLeadTimelineView() {
+  const section = document.getElementById('lead-timeline-section');
+  const btn = document.getElementById('btn-toggle-timeline');
+  if (!section) return;
+
+  const isHidden = section.style.display === 'none' || !section.style.display;
+  section.style.display = isHidden ? 'block' : 'none';
+  if (btn) {
+    btn.textContent = isHidden ? '🙈 Ocultar Timeline' : '📜 Ver Timeline & Histórico';
+  }
+  if (isHidden) {
+    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+async function handleDeleteLeadWithDoubleConfirmation() {
+  const leadId = document.getElementById('lead-id').value;
+  if (!leadId) return;
+
+  const lead = state.leads.find(l => l.id === leadId);
+  if (!lead) return;
+
+  // 1ª CONFIRMAÇÃO
+  const step1 = confirm(`⚠️ 1ª CONFIRMAÇÃO:\nDeseja realmente EXCLUIR o lead "${lead.nome}"?`);
+  if (!step1) return;
+
+  // 2ª CONFIRMAÇÃO EXPLÍCITA
+  const step2 = confirm(`🚨 2ª CONFIRMAÇÃO FINAL DE SEGURANÇA:\n\nTem certeza ABSOLUTA de que deseja excluir permanentemente o lead "${lead.nome}"?\n\nEsta ação NÃO poderá ser desfeita e removerá o cadastro do sistema.`);
+  if (!step2) {
+    showToast('Exclusão cancelada. O lead foi mantido com segurança.', 'info');
+    return;
+  }
+
+  // Executa exclusão
+  const name = lead.nome;
+  state.leads = state.leads.filter(l => l.id !== leadId);
+
+  // Remove do Firestore se ativado
+  if (state.currentUser && window.FirebaseService && window.FirebaseService.db) {
+    try {
+      const { db, doc, deleteDoc } = window.FirebaseService;
+      const info = getConsultantInfo();
+      await deleteDoc(doc(db, 'users', info.consultantUid, 'leads', leadId));
+      await deleteDoc(doc(db, 'store_leads', leadId));
+    } catch (err) {
+      console.warn('Erro ao remover lead da nuvem:', err);
+    }
+  }
+
+  saveLeads();
+  closeLeadModal();
+  showToast(`🗑️ Lead "${name}" foi excluído permanentemente.`, 'danger');
 }
 
 function closeLeadModal() {
