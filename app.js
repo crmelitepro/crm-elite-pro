@@ -1066,6 +1066,7 @@ function renderFollowups() {
         </div>
 
         ${lead.notas ? `<div class="followup-notes">📝 ${escapeHtml(lead.notas)}</div>` : ''}
+        ${lead.lastRescheduleNote ? `<div class="reschedule-note-tag" style="font-size: 0.76rem; color: #f59e0b; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); padding: 0.3rem 0.55rem; border-radius: var(--radius-sm); margin-top: 0.35rem; font-weight: 500;">⏰ <strong>Agendamento:</strong> ${escapeHtml(lead.lastRescheduleNote)}</div>` : ''}
 
         <div class="followup-footer" style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
           <button class="btn btn-outline small" onclick="event.stopPropagation(); openLeadModal('${lead.id}')" style="font-size: 0.78rem;">
@@ -1165,6 +1166,7 @@ function renderKanban() {
                 ${lead.valorConsorcio ? `<div class="lead-value">${formatMoney(lead.valorConsorcio)}</div>` : ''}
 
                 ${lead.notas ? `<div class="followup-notes" style="font-size: 0.78rem;">📝 ${escapeHtml(lead.notas)}</div>` : ''}
+                ${lead.lastRescheduleNote ? `<div class="reschedule-note-tag" style="font-size: 0.76rem; color: #f59e0b; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); padding: 0.3rem 0.55rem; border-radius: var(--radius-sm); margin-top: 0.35rem; font-weight: 500;">⏰ <strong>Agendamento:</strong> ${escapeHtml(lead.lastRescheduleNote)}</div>` : ''}
 
                 <div class="card-footer" style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); gap: 0.4rem; flex-wrap: wrap;">
                   <div class="next-contact-tag ${isOverdue ? 'overdue' : (isToday ? 'today' : '')}">
@@ -1312,7 +1314,9 @@ function showMandatoryDateModal(lead, stageId) {
       ? lead.proximoContato 
       : tomorrowStr;
   }
-  if (notesInput) notesInput.value = lead.notas || '';
+  
+  // A caixa de texto DEVE vir sempre vazia por padrão
+  if (notesInput) notesInput.value = '';
 
   if (modal) modal.classList.add('active');
 }
@@ -1334,11 +1338,27 @@ function confirmMandatoryDate(e) {
   if (lead) {
     lead.status = state.pendingMove.targetStageId;
     lead.proximoContato = newDate;
-    addLeadHistoryEntry(lead, 'Reagendamento & Estágio', `Contato marcado para ${formatDateBr(newDate)} (${getStageName(lead.status)})`, 'reschedule');
-    if (notesInput && notesInput.value.trim()) {
-      lead.notas = notesInput.value.trim();
-      addLeadHistoryEntry(lead, 'Nota Adicionada', notesInput.value.trim(), 'note');
+
+    // Registra a movimentação no histórico
+    addLeadHistoryEntry(lead, 'Reagendamento de Contato', `Contato marcado para ${formatDateBr(newDate)} (${getStageName(lead.status)})`, 'reschedule');
+
+    const rescheduleNote = notesInput ? notesInput.value.trim() : '';
+    if (rescheduleNote) {
+      // Guarda a nota de reagendamento separada (NÃO altera a nota principal lead.notas)
+      lead.lastRescheduleNote = rescheduleNote;
+
+      if (!lead.reagendamentoNotas) lead.reagendamentoNotas = [];
+      lead.reagendamentoNotas.unshift({
+        date: newDate,
+        stage: getStageName(lead.status),
+        text: rescheduleNote,
+        timestamp: new Date().toISOString()
+      });
+
+      // Adiciona na Timeline do Lead
+      addLeadHistoryEntry(lead, 'Nota de Agendamento', `[${getStageName(lead.status)}] ${rescheduleNote}`, 'note');
     }
+
     saveLeads();
     showToast(`Data atualizada para ${formatDateBr(newDate)}! Lead reaparecerá no Painel Diário.`, 'success');
   }
@@ -1425,6 +1445,16 @@ function openLeadModal(leadId) {
   document.getElementById('lead-data').value = lead.proximoContato || getTodayDateString();
   document.getElementById('lead-valor').value = lead.valorConsorcio || '';
   document.getElementById('lead-notas').value = lead.notas || '';
+
+  // Exibe nota de reagendamento separada se houver
+  const rescheduleSection = document.getElementById('lead-reschedule-notes-section');
+  const rescheduleDisplay = document.getElementById('lead-last-reschedule-note-display');
+  if (lead.lastRescheduleNote) {
+    if (rescheduleSection) rescheduleSection.style.display = 'block';
+    if (rescheduleDisplay) rescheduleDisplay.textContent = lead.lastRescheduleNote;
+  } else {
+    if (rescheduleSection) rescheduleSection.style.display = 'none';
+  }
 
   const deleteBtn = document.getElementById('btn-delete-lead');
   if (deleteBtn) deleteBtn.style.display = 'inline-flex';

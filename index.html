@@ -1143,8 +1143,17 @@
           </div>
 
           <div class="form-group">
-            <label for="lead-notas">Notas da Reunião / Histórico</label>
+            <label for="lead-notas">Notas da Reunião (Nota Principal)</label>
             <textarea id="lead-notas" rows="3" placeholder="Insira aqui objeções, cotas de interesse ou detalhes das reuniões..." onkeydown="handleNotasKeyDown(event)"></textarea>
+          </div>
+
+          <!-- Bloco Separado para Última Nota de Agendamento -->
+          <div id="lead-reschedule-notes-section" style="display: none; margin-bottom: 1rem;">
+            <label style="font-size: 0.82rem; font-weight: 600; color: #f59e0b; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem;">
+              <span>⏰ Última Nota de Agendamento (Separada)</span>
+            </label>
+            <div id="lead-last-reschedule-note-display" style="font-size: 0.83rem; color: var(--text-main); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); padding: 0.6rem 0.85rem; border-radius: var(--radius-md); line-height: 1.45;">
+            </div>
           </div>
 
           <!-- Rodapé com os 4 botões na mesma linha -->
@@ -1237,8 +1246,8 @@
           </div>
 
           <div class="form-group">
-            <label for="mandatory-notes-input">Atualizar Nota / Observação (Opcional)</label>
-            <input type="text" id="mandatory-notes-input" placeholder="Motivo do retorno ou agendamento...">
+            <label for="mandatory-notes-input">Nova Nota de Agendamento / Motivo (Opcional)</label>
+            <input type="text" id="mandatory-notes-input" placeholder="Digite uma nova nota para este reagendamento...">
           </div>
 
           <div class="modal-footer">
