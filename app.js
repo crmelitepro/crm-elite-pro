@@ -1384,6 +1384,36 @@ function handleNotasKeyDown(e) {
   }
 }
 
+// Máscara e Formatação de Moeda
+function formatMoneyInput(input) {
+  if (!input) return;
+  let value = input.value.replace(/\D/g, '');
+  if (!value) {
+    input.value = '';
+    return;
+  }
+  const num = parseInt(value, 10);
+  input.value = 'R$ ' + num.toLocaleString('pt-BR');
+}
+
+function parseMoneyInputValue(valStr) {
+  if (!valStr) return 0;
+  const clean = String(valStr).replace(/[^\d]/g, '');
+  return parseInt(clean, 10) || 0;
+}
+
+// Listener Global para abrir calendário em QUALQUER clique no input type=date
+document.addEventListener('click', function(e) {
+  const target = e.target;
+  if (target && target.tagName === 'INPUT' && target.type === 'date') {
+    if (typeof target.showPicker === 'function') {
+      try {
+        target.showPicker();
+      } catch (err) {}
+    }
+  }
+});
+
 function openLeadTimelineOverlay() {
   const leadId = document.getElementById('lead-id').value;
   const lead = state.leads.find(l => l.id === leadId);
@@ -1443,7 +1473,10 @@ function openLeadModal(leadId) {
   document.getElementById('lead-origem').value = lead.origem;
   document.getElementById('lead-status').value = lead.status;
   document.getElementById('lead-data').value = lead.proximoContato || getTodayDateString();
-  document.getElementById('lead-valor').value = lead.valorConsorcio || '';
+  
+  const valConsorcio = Number(lead.valorConsorcio) || 0;
+  document.getElementById('lead-valor').value = valConsorcio ? 'R$ ' + valConsorcio.toLocaleString('pt-BR') : '';
+  
   document.getElementById('lead-notas').value = lead.notas || '';
 
   // Exibe nota de reagendamento separada se houver
@@ -1556,7 +1589,7 @@ function handleLeadSubmit(e) {
     const origem = document.getElementById('lead-origem').value;
     const status = parseInt(document.getElementById('lead-status').value, 10);
     const proximoContato = document.getElementById('lead-data').value;
-    const valorConsorcio = Number(document.getElementById('lead-valor').value) || 0;
+    const valorConsorcio = parseMoneyInputValue(document.getElementById('lead-valor').value);
     const notas = document.getElementById('lead-notas').value.trim();
 
     if (!nome || !telefone) {

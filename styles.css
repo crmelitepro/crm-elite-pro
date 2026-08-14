@@ -1670,6 +1670,15 @@ body.light-theme .active-page-badge {
   min-height: 65px;
 }
 
+input[type="date"] {
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.85);
+}
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
