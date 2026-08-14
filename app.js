@@ -19,7 +19,8 @@ const KANBAN_STAGES = [
   { id: 4, name: '2ª Reunião (Apresentação)', color: 'var(--stage-4)', mandatoryDate: false },
   { id: 5, name: 'Aguardando Contrato/Pagamento', color: 'var(--stage-5)', mandatoryDate: false },
   { id: 6, name: 'Stand-by (Pensando)', color: 'var(--stage-6)', mandatoryDate: true },
-  { id: 7, name: 'Venda Fechada', color: 'var(--stage-7)', mandatoryDate: false }
+  { id: 7, name: 'Venda Fechada', color: 'var(--stage-7)', mandatoryDate: false },
+  { id: 8, name: 'Lead Perdido / Base de Disparos', color: 'var(--stage-8)', mandatoryDate: false }
 ];
 
 // Default Goal Configurations
@@ -994,9 +995,9 @@ function renderFollowups() {
 
   const todayStr = getTodayDateString();
 
-  // Leads where proximoContato <= today AND not closed (or active)
+  // Leads where proximoContato <= today AND not closed (7) or lost/broadcast base (8)
   const pendingLeads = state.leads.filter(lead => {
-    if (lead.status === 7) return false; // Excluir Venda Fechada dos followups
+    if (Number(lead.status) === 7 || Number(lead.status) === 8) return false; // Excluir Venda Fechada e Base de Disparos dos followups diários
     return lead.proximoContato && lead.proximoContato <= todayStr;
   });
 
@@ -3495,8 +3496,8 @@ function updateNotificationsState() {
   const items = [];
 
   state.leads.forEach(lead => {
-    // 1. Follow-up Atrasado (excluindo venda fechada - status 7)
-    if (lead.proximoContato && lead.proximoContato < today && Number(lead.status) !== 7) {
+    // 1. Follow-up Atrasado (excluindo venda fechada - status 7 e base de disparos - status 8)
+    if (lead.proximoContato && lead.proximoContato < today && Number(lead.status) !== 7 && Number(lead.status) !== 8) {
       items.push({
         id: 'notif_overdue_' + lead.id,
         leadId: lead.id,
@@ -3509,7 +3510,7 @@ function updateNotificationsState() {
       });
     }
     // 2. Follow-up do Dia
-    else if (lead.proximoContato === today && Number(lead.status) !== 7) {
+    else if (lead.proximoContato === today && Number(lead.status) !== 7 && Number(lead.status) !== 8) {
       items.push({
         id: 'notif_today_' + lead.id,
         leadId: lead.id,

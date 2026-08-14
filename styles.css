@@ -47,6 +47,7 @@
   --stage-5: #059669; /* Aguardando Contrato */
   --stage-6: #e11d48; /* Stand-by (Pensando) */
   --stage-7: #10b981; /* Venda Fechada */
+  --stage-8: #f97316; /* Lead Perdido / Base de Disparos */
 
   /* Utility */
   --radius-sm: 8px;
