@@ -1298,12 +1298,14 @@ body.light-theme .active-page-badge {
 
 /* Kanban Horizontal Board Layout */
 .kanban-board {
-  display: grid;
-  grid-template-columns: repeat(7, 300px);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: 1.25rem;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 1.5rem;
-  align-items: start;
+  align-items: flex-start;
   min-height: calc(100vh - 240px);
 }
 
@@ -1328,6 +1330,8 @@ body.light-theme .active-page-badge {
 
 /* Kanban Column */
 .kanban-column {
+  flex: 0 0 310px;
+  width: 310px;
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
