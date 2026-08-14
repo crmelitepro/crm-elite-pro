@@ -2055,12 +2055,17 @@ function renderUserHeader() {
   const headerContainer = document.getElementById('header-user-area');
 
   const email = state.currentUser ? (state.currentUser.email || 'Usuário') : 'admin@consorciocrm.com.br';
+  const photo = state.currentUser ? (state.currentUser.photoURL || state.currentUser.fotoUrl || state.currentUser.avatarUrl || '') : '';
   const initial = email.charAt(0).toUpperCase();
+
+  const avatarHtml = photo 
+    ? `<img src="${photo}" alt="Foto de Perfil" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--primary); flex-shrink: 0;">`
+    : `<div class="user-avatar">${initial}</div>`;
 
   const html = `
     <div class="user-profile-bar" style="width: 100%; justify-content: space-between;" title="Conectado como ${escapeHtml(email)}">
       <div style="display: flex; align-items: center; gap: 0.6rem; overflow: hidden;">
-        <div class="user-avatar">${initial}</div>
+        ${avatarHtml}
         <span class="user-email-text" style="max-width: 150px; text-overflow: ellipsis; overflow: hidden;">${escapeHtml(email)}</span>
       </div>
       <button class="btn-logout" onclick="handleLogout()" title="Sair da Conta">Sair</button>
