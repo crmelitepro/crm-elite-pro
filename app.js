@@ -1358,6 +1358,31 @@ function cancelMandatoryDate() {
   renderKanban();
 }
 
+function handleNotasKeyDown(e) {
+  if (e.key === 'Enter') {
+    e.stopPropagation(); // Evita submeter o formulário ao apertar Enter nas notas da reunião
+  }
+}
+
+function openLeadTimelineOverlay() {
+  const editView = document.getElementById('lead-edit-view');
+  const timelineView = document.getElementById('lead-timeline-view');
+  const leadName = document.getElementById('lead-nome')?.value || 'Lead';
+  const titleEl = document.getElementById('timeline-lead-title');
+  if (titleEl) titleEl.textContent = `📜 Timeline de ${leadName}`;
+
+  if (editView) editView.style.display = 'none';
+  if (timelineView) timelineView.style.display = 'block';
+}
+
+function closeLeadTimelineOverlay() {
+  const editView = document.getElementById('lead-edit-view');
+  const timelineView = document.getElementById('lead-timeline-view');
+
+  if (timelineView) timelineView.style.display = 'none';
+  if (editView) editView.style.display = 'block';
+}
+
 // Lead Edit/Create Modal
 function openNewLeadModal() {
   document.getElementById('modal-lead-title').textContent = 'Cadastrar Novo Lead';
@@ -1366,13 +1391,12 @@ function openNewLeadModal() {
 
   document.getElementById('lead-data').value = getTodayDateString();
 
-  const actionsBar = document.getElementById('lead-actions-bar');
-  if (actionsBar) actionsBar.style.display = 'none';
   const deleteBtn = document.getElementById('btn-delete-lead');
   if (deleteBtn) deleteBtn.style.display = 'none';
+  const toggleBtn = document.getElementById('btn-toggle-timeline');
+  if (toggleBtn) toggleBtn.style.display = 'none';
 
-  const timelineSection = document.getElementById('lead-timeline-section');
-  if (timelineSection) timelineSection.style.display = 'none';
+  closeLeadTimelineOverlay();
 
   const modal = document.getElementById('modal-lead');
   if (modal) {
@@ -1395,15 +1419,12 @@ function openLeadModal(leadId) {
   document.getElementById('lead-valor').value = lead.valorConsorcio || '';
   document.getElementById('lead-notas').value = lead.notas || '';
 
-  const actionsBar = document.getElementById('lead-actions-bar');
-  if (actionsBar) actionsBar.style.display = 'flex';
   const deleteBtn = document.getElementById('btn-delete-lead');
   if (deleteBtn) deleteBtn.style.display = 'inline-flex';
   const toggleBtn = document.getElementById('btn-toggle-timeline');
-  if (toggleBtn) toggleBtn.textContent = '📜 Ver Timeline & Histórico';
+  if (toggleBtn) toggleBtn.style.display = 'inline-flex';
 
-  const timelineSection = document.getElementById('lead-timeline-section');
-  if (timelineSection) timelineSection.style.display = 'none';
+  closeLeadTimelineOverlay();
   renderLeadTimeline(lead);
 
   const modal = document.getElementById('modal-lead');
@@ -1413,18 +1434,12 @@ function openLeadModal(leadId) {
   }
 }
 
-function toggleLeadTimelineView() {
-  const section = document.getElementById('lead-timeline-section');
-  const btn = document.getElementById('btn-toggle-timeline');
-  if (!section) return;
-
-  const isHidden = section.style.display === 'none' || !section.style.display;
-  section.style.display = isHidden ? 'block' : 'none';
-  if (btn) {
-    btn.textContent = isHidden ? '🙈 Ocultar Timeline' : '📜 Ver Timeline & Histórico';
-  }
-  if (isHidden) {
-    section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function closeLeadModal() {
+  closeLeadTimelineOverlay();
+  const modal = document.getElementById('modal-lead');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
   }
 }
 
