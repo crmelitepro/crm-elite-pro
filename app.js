@@ -1365,11 +1365,18 @@ function handleNotasKeyDown(e) {
 }
 
 function openLeadTimelineOverlay() {
+  const leadId = document.getElementById('lead-id').value;
+  const lead = state.leads.find(l => l.id === leadId);
+
   const editView = document.getElementById('lead-edit-view');
   const timelineView = document.getElementById('lead-timeline-view');
-  const leadName = document.getElementById('lead-nome')?.value || 'Lead';
+  const leadName = lead ? lead.nome : (document.getElementById('lead-nome')?.value || 'Lead');
   const titleEl = document.getElementById('timeline-lead-title');
   if (titleEl) titleEl.textContent = `📜 Timeline de ${leadName}`;
+
+  if (lead) {
+    renderLeadTimeline(lead);
+  }
 
   if (editView) editView.style.display = 'none';
   if (timelineView) timelineView.style.display = 'block';
@@ -3783,26 +3790,23 @@ function addLeadHistoryEntry(lead, action, details = '', type = 'stage') {
 }
 
 function renderLeadTimeline(lead) {
-  const container = document.getElementById('lead-timeline-section');
   const list = document.getElementById('lead-timeline-list');
   const countEl = document.getElementById('lead-timeline-count');
 
-  if (!container || !list) return;
+  if (!list) return;
 
   if (!lead || !lead.id) {
-    container.style.display = 'none';
+    list.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Nenhum lead selecionado.</div>`;
     return;
   }
 
-  container.style.display = 'block';
-
-  // Se não houver histórico, cria o registro padrão de criação
+  // Se não houver histórico, cria o registro padrão de criação do lead
   if (!lead.history || lead.history.length === 0) {
     lead.history = [{
       id: 'hist_init_' + Date.now(),
       timestamp: lead.createdAt || new Date().toISOString(),
-      action: 'Lead Cadastrado',
-      details: `Lead recebido via ${lead.origem || 'Direto'}.`,
+      action: 'Lead Cadastrado no Sistema',
+      details: `Lead cadastrado via ${lead.origem || 'Direto'}.`,
       type: 'create',
       author: lead.consultantName || 'Consultor'
     }];
