@@ -3184,3 +3184,50 @@ body.light-theme .active-page-badge {
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* Botões Especiais Reagendar & WhatsApp */
+.btn-reagenda-orange {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.btn-reagenda-orange:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);
+}
+
+.btn-whatsapp-green {
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.btn-whatsapp-green:hover {
+  background: linear-gradient(135deg, #20ba5a, #0e7367);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.6);
+}

@@ -985,29 +985,48 @@ function handleAddGoalSubmit(e) {
 }
 
 // Follow-ups list rendering (Today or Overdue)
+function normalizeDateStr(dStr) {
+  if (!dStr) return '';
+  dStr = String(dStr).trim();
+  if (dStr.includes('/')) {
+    const parts = dStr.split('/');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  if (dStr.includes('T')) {
+    return dStr.split('T')[0];
+  }
+  return dStr;
+}
+
+// Follow-ups list rendering (Today or Overdue)
 function renderFollowups() {
   const container = document.getElementById('followups-container');
   const badgeNavCount = document.getElementById('badge-followups-count');
   const filterLabel = document.getElementById('followup-filter-label');
   const badgeTotalLeads = document.getElementById('badge-total-leads');
 
-  if (badgeTotalLeads) badgeTotalLeads.textContent = state.leads.length;
+  const visibleLeads = getVisibleLeads();
+  if (badgeTotalLeads) badgeTotalLeads.textContent = visibleLeads.length;
 
   const todayStr = getTodayDateString();
 
-  // Leads where proximoContato <= today AND not closed (7) or lost/broadcast base (8)
-  const pendingLeads = state.leads.filter(lead => {
-    if (Number(lead.status) === 7 || Number(lead.status) === 8) return false; // Excluir Venda Fechada e Base de Disparos dos followups diários
-    return lead.proximoContato && lead.proximoContato <= todayStr;
+  // Leads com próximo contato <= hoje e que não estão fechados (7) ou disparos (8)
+  const pendingLeads = visibleLeads.filter(lead => {
+    const st = Number(lead.status);
+    if (st === 7 || st === 8) return false;
+    const dateStr = normalizeDateStr(lead.proximoContato);
+    return dateStr && dateStr <= todayStr;
   });
 
-  // Sort: overdue first, then today
-  pendingLeads.sort((a, b) => a.proximoContato.localeCompare(b.proximoContato));
+  // Ordenar: atrasados primeiro, depois por data de contato
+  pendingLeads.sort((a, b) => (normalizeDateStr(a.proximoContato) || '').localeCompare(normalizeDateStr(b.proximoContato) || ''));
 
   if (badgeNavCount) badgeNavCount.textContent = pendingLeads.length;
 
   if (filterLabel) {
-    const overdueCount = pendingLeads.filter(l => l.proximoContato < todayStr).length;
+    const overdueCount = pendingLeads.filter(l => normalizeDateStr(l.proximoContato) < todayStr).length;
     filterLabel.textContent = overdueCount > 0 
       ? `${pendingLeads.length} pendentes (${overdueCount} atrasados)`
       : `${pendingLeads.length} para hoje`;
@@ -1028,12 +1047,13 @@ function renderFollowups() {
   }
 
   container.innerHTML = pendingLeads.map(lead => {
-    const isOverdue = lead.proximoContato < todayStr;
-    const stageObj = KANBAN_STAGES.find(s => s.id === lead.status) || { name: 'Desconhecido' };
-    const formattedDate = formatDateBR(lead.proximoContato);
+    const dateNorm = normalizeDateStr(lead.proximoContato);
+    const isOverdue = dateNorm && dateNorm < todayStr;
+    const stageObj = KANBAN_STAGES.find(s => s.id === Number(lead.status)) || { name: 'Desconhecido' };
+    const formattedDate = formatDateBR(dateNorm);
 
     return `
-      <div class="followup-card-item ${isOverdue ? 'overdue' : 'today'}">
+      <div class="followup-card-item ${isOverdue ? 'overdue' : 'today'}" onclick="openLeadModal('${lead.id}')" style="cursor: pointer;">
         <div class="followup-header">
           <div class="lead-name-meta">
             <h4>${escapeHtml(lead.nome)}</h4>
@@ -1041,34 +1061,34 @@ function renderFollowups() {
           </div>
           <div class="followup-badges">
             <span class="badge ${isOverdue ? 'badge-rose' : 'badge-warning'}">
-              ${isOverdue ? '⚠️ Atrasado' : '📅 Hoje'} (${formattedDate})
+              ${isOverdue ? '⚠️ Atrasado desde' : '📅 Contato Hoje'} (${formattedDate})
             </span>
-            <span class="badge badge-origem">${escapeHtml(lead.origem)}</span>
+            <span class="badge badge-origem">${escapeHtml(lead.origem || 'Geral')}</span>
             <span class="badge badge-stage">${escapeHtml(stageObj.name)}</span>
           </div>
         </div>
 
         ${lead.notas ? `<div class="followup-notes">📝 ${escapeHtml(lead.notas)}</div>` : ''}
 
-        <div class="followup-actions">
-          <button class="btn btn-outline small" onclick="openLeadModal('${lead.id}')">
-          <div class="followup-info">
-            <strong class="followup-name">${escapeHtml(lead.nome)}</strong>
-            <span class="followup-phone">${escapeHtml(lead.telefone)}</span>
+        <div class="followup-footer" style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+          <button class="btn btn-outline small" onclick="event.stopPropagation(); openLeadModal('${lead.id}')" style="font-size: 0.78rem;">
+            ✏️ Ver / Editar
+          </button>
+          
+          <div style="display: flex; align-items: center; gap: 0.4rem;" onclick="event.stopPropagation()">
+            <!-- Botão Laranja Reagendar -->
+            <button class="btn btn-reagenda-orange" onclick="event.stopPropagation(); openMandatoryModalForLead('${lead.id}')" title="Selecionar nova data de contato">
+              ⏰ Reagendar
+            </button>
+            
+            <!-- Botão Verde WhatsApp -->
+            <button class="btn btn-whatsapp-green" onclick="event.stopPropagation(); openWhatsApp('${lead.telefone}', '${lead.nome}')" title="Chamar no WhatsApp">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-1.002 3.659 3.745-.982zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+              </svg>
+              WhatsApp
+            </button>
           </div>
-          <span class="badge ${isOverdue ? 'badge-rose' : 'badge-emerald'}">
-            ${isOverdue ? `Atrasado desde ${dateFormatted}` : `Hoje - ${dateFormatted}`}
-          </span>
-        </div>
-        <div class="followup-body">
-          <p><strong>Ação Pendente:</strong> ${escapeHtml(lead.acaoPendente || 'Entrar em contato com o lead')}</p>
-          ${lead.notas ? `<p class="text-muted" style="font-size: 0.8rem;">${escapeHtml(lead.notas)}</p>` : ''}
-        </div>
-        <div class="followup-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem;">
-          <a href="https://wa.me/55${lead.telefone.replace(/\D/g, '')}" target="_blank" class="btn btn-outline small" style="background: rgba(37,211,102,0.1); color: #25D366; border-color: rgba(37,211,102,0.3);">
-            💬 WhatsApp
-          </a>
-          <button class="btn btn-primary small" onclick="openEditModal('${lead.id}')">✏️ Editar Lead</button>
         </div>
       </div>
     `;
@@ -1105,7 +1125,7 @@ function renderKanban() {
 
   const todayStr = getTodayDateString();
 
-  // Render 7 Columns
+  // Render 8 Columns
   board.innerHTML = KANBAN_STAGES.map(stage => {
     const stageLeads = filteredLeads.filter(l => Number(l.status) === Number(stage.id));
     
@@ -1128,8 +1148,9 @@ function renderKanban() {
              ondragover="handleDragOver(event)"
              ondrop="handleDrop(event, ${stage.id})">
           ${stageLeads.map(lead => {
-            const isOverdue = lead.proximoContato && lead.proximoContato < todayStr;
-            const isToday = lead.proximoContato && lead.proximoContato === todayStr;
+            const dateNorm = normalizeDateStr(lead.proximoContato);
+            const isOverdue = dateNorm && dateNorm < todayStr;
+            const isToday = dateNorm && dateNorm === todayStr;
 
             return `
               <div class="kanban-card" 
@@ -1141,20 +1162,29 @@ function renderKanban() {
                 
                 <div class="card-top">
                   <span class="lead-name">${escapeHtml(lead.nome)}</span>
-                  <span class="origem-pill ${getOrigemPillClass(lead.origem)}">${escapeHtml(lead.origem)}</span>
+                  <span class="origem-pill ${getOrigemPillClass(lead.origem)}">${escapeHtml(lead.origem || 'Geral')}</span>
                 </div>
 
                 ${lead.valorConsorcio ? `<div class="lead-value">${formatMoney(lead.valorConsorcio)}</div>` : ''}
 
-                ${lead.notas ? `<div class="followup-notes" style="font-size: 0.78rem;">${escapeHtml(lead.notas)}</div>` : ''}
+                ${lead.notas ? `<div class="followup-notes" style="font-size: 0.78rem;">📝 ${escapeHtml(lead.notas)}</div>` : ''}
 
-                <div class="card-footer">
+                <div class="card-footer" style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.06); gap: 0.4rem; flex-wrap: wrap;">
                   <div class="next-contact-tag ${isOverdue ? 'overdue' : (isToday ? 'today' : '')}">
-                    📅 ${formatDateBR(lead.proximoContato)}
+                    📅 ${formatDateBR(dateNorm)}
                   </div>
-                  <div class="card-actions-quick" onclick="event.stopPropagation()">
-                    <button class="btn-icon" title="Abrir WhatsApp" onclick="openWhatsApp('${lead.telefone}', '${lead.nome}')">
-                      💬
+                  <div class="card-actions-quick" onclick="event.stopPropagation()" style="display: flex; align-items: center; gap: 0.4rem;">
+                    <!-- Botão Laranja Reagendar -->
+                    <button class="btn btn-reagenda-orange" onclick="event.stopPropagation(); openMandatoryModalForLead('${lead.id}')" title="Selecionar nova data de contato">
+                      ⏰ Reagendar
+                    </button>
+                    
+                    <!-- Botão Verde WhatsApp -->
+                    <button class="btn btn-whatsapp-green" onclick="event.stopPropagation(); openWhatsApp('${lead.telefone}', '${lead.nome}')" title="Chamar no WhatsApp">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-1.002 3.659 3.745-.982zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                      </svg>
+                      WhatsApp
                     </button>
                   </div>
                 </div>
@@ -1479,9 +1509,13 @@ function getStageName(stageId) {
 }
 
 function openWhatsApp(phone, leadName) {
+  if (!phone) {
+    alert('Este lead não possui número de telefone/WhatsApp cadastrado!');
+    return;
+  }
   const cleanNum = phone.replace(/\D/g, '');
   const finalNum = cleanNum.startsWith('55') ? cleanNum : `55${cleanNum}`;
-  const text = encodeURIComponent(`Olá ${leadName}, tudo bem? Sou da consultoria de consórcios.`);
+  const text = encodeURIComponent(`Oii ${leadName}, tudo bom?!`);
   const url = `https://wa.me/${finalNum}?text=${text}`;
   window.open(url, '_blank');
 }
