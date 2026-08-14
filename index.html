@@ -318,38 +318,58 @@
 
         <!-- Pirâmide de Metas: Mensal & Semanal Reajustada Dinamicamente -->
         <div class="pyramid-goals-grid">
-          <!-- Card Meta Mensal em R$ -->
-          <div class="pyramid-card monthly">
+          <!-- Card 1 (Esquerda): Meta Mensal & Semanal Unificada -->
+          <div class="pyramid-card monthly-unified" id="card-pyramid-unified">
             <div class="pyramid-card-header">
               <div class="pyramid-title">
-                <span>🎯 Meta Mensal de Vendas (R$)</span>
+                <span>🎯 Meta Mensal de Vendas</span>
                 <h3 id="monthly-sales-progress">R$ 0 / R$ 500.000</h3>
               </div>
-              <span class="pyramid-badge" id="monthly-sales-pct">0%</span>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="pyramid-badge" id="monthly-sales-pct">0%</span>
+                <button class="btn-link-edit" onclick="openGoalsConfigModal()" title="Editar Meta Mensal">⚙️ Editar Meta</button>
+              </div>
             </div>
-            <div class="progress-bar-bg" style="height: 10px; margin: 0.75rem 0;">
+
+            <div class="progress-bar-bg" style="height: 10px; margin: 0.65rem 0;">
               <div id="monthly-sales-bar" class="progress-bar-fill primary" style="width: 0%;"></div>
             </div>
-            <div class="pyramid-footer">
-              <span id="monthly-sales-subtext">Restam R$ 500.000 para fechar o mês</span>
-              <button class="btn-link-edit" onclick="openGoalsConfigModal()">⚙️ Editar Meta</button>
+
+            <div class="pyramid-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem;">
+              <span id="monthly-sales-subtext" style="font-size: 0.8rem; color: var(--text-muted);">Restam R$ 500.000 para fechar a meta do mês</span>
+
+              <!-- Meta Semanal Complementar com Menor Destaque -->
+              <div class="weekly-inline-complement" style="display: flex; align-items: center; gap: 0.35rem; background: rgba(255,255,255,0.05); padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.08); font-size: 0.78rem;">
+                <span style="color: var(--text-muted);">⚡ Meta Semanal:</span>
+                <strong id="weekly-sales-progress-inline" style="font-family: 'JetBrains Mono', monospace; color: var(--text-main);">R$ 0 / R$ 166.667</strong>
+                <span id="weekly-sales-pct-inline" class="badge-inline-amber" style="color: #f59e0b; font-weight: 700; margin-left: 0.25rem;">(0%)</span>
+              </div>
             </div>
           </div>
 
-          <!-- Card Meta Semanal Reajustada Dinamicamente -->
-          <div class="pyramid-card weekly">
+          <!-- Card 2 (Direita): Total de Vendas Projetadas -->
+          <div class="pyramid-card projected">
             <div class="pyramid-card-header">
               <div class="pyramid-title">
-                <span>⚡ Meta Semanal Ajustada (Recálculo Automático)</span>
-                <h3 id="weekly-sales-progress">R$ 0 / R$ 125.000</h3>
+                <span>📈 Total Vendas Projetadas no Mês</span>
+                <h3 id="projected-sales-value" style="color: #f59e0b;">R$ 0</h3>
               </div>
-              <span class="pyramid-badge amber" id="weekly-sales-pct">0%</span>
+              <span class="pyramid-badge amber" id="projected-leads-count">0 leads</span>
             </div>
-            <div class="progress-bar-bg" style="height: 10px; margin: 0.75rem 0;">
-              <div id="weekly-sales-bar" class="progress-bar-fill amber" style="width: 0%;"></div>
+
+            <div style="display: flex; align-items: center; gap: 0.6rem; margin: 0.6rem 0;">
+              <div style="flex: 1; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); padding: 0.4rem 0.65rem; border-radius: var(--radius-sm);">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">📄 Aguardando Contrato (Etapa 5)</div>
+                <div style="font-size: 0.88rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #f59e0b; margin-top: 0.15rem;" id="projected-awaiting-val">R$ 0</div>
+              </div>
+              <div style="flex: 1; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); padding: 0.4rem 0.65rem; border-radius: var(--radius-sm);">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">📅 Agendados neste Mês</div>
+                <div style="font-size: 0.88rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3b82f6; margin-top: 0.15rem;" id="projected-scheduled-val">R$ 0</div>
+              </div>
             </div>
+
             <div class="pyramid-footer">
-              <span id="weekly-sales-subtext">⚡ Recalculado dinamicamente para garantir a meta do mês</span>
+              <span id="projected-sales-subtext" style="font-size: 0.78rem; color: var(--text-muted);">Soma dos contratos em andamento e negociações marcadas para o mês</span>
             </div>
           </div>
         </div>

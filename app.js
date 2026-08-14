@@ -692,8 +692,8 @@ function calculatePyramidGoalMetrics() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-11
+  const currentMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
 
-  // Pega os leads visíveis (respeitando se o supervisor estiver inspecionando um consultor)
   const leads = typeof getVisibleLeads === 'function' ? getVisibleLeads() : state.leads;
   
   // 1. Somar faturamento de vendas fechadas (estágio 7) no mês atual
@@ -703,10 +703,18 @@ function calculatePyramidGoalMetrics() {
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
+  // Vendas Projetadas (Negociações no mês: Etapa 5 OU retorno marcado no mês)
+  let projectedTotalVal = 0;
+  let projectedAwaitingVal = 0;
+  let projectedScheduledVal = 0;
+  let projectedCount = 0;
+
   leads.forEach(l => {
     const stage = Number(l.status) || Number(l.stageId);
+    const val = Number(l.valorConsorcio) || Number(l.valor) || 0;
+
+    // Vendas Fechadas (Estágio 7)
     if (stage === 7 || l.columnId === 'venda-fechada') {
-      const val = Number(l.valorConsorcio) || Number(l.valor) || 0;
       if (val > 0) {
         const dStr = l.soldAt || l.updatedAt || l.createdAt;
         let leadDate = now;
@@ -723,6 +731,24 @@ function calculatePyramidGoalMetrics() {
         // Vendas dos últimos 7 dias
         if (leadDate >= oneWeekAgo) {
           weeklySalesAchieved += val;
+        }
+      }
+    }
+
+    // Vendas Projetadas (Leads em negociação no mês: Etapa 5 OU proximoContato no mês)
+    if (stage !== 7 && stage !== 8) {
+      const nextContactNorm = normalizeDateStr(l.proximoContato);
+      const isScheduledThisMonth = nextContactNorm && nextContactNorm.startsWith(currentMonthStr);
+      const isAwaitingContract = stage === 5; // 5. Aguardando Contrato/Pagamento
+
+      if (isAwaitingContract || isScheduledThisMonth) {
+        projectedCount++;
+        projectedTotalVal += val;
+
+        if (isAwaitingContract) {
+          projectedAwaitingVal += val;
+        } else if (isScheduledThisMonth) {
+          projectedScheduledVal += val;
         }
       }
     }
@@ -746,14 +772,18 @@ function calculatePyramidGoalMetrics() {
     weeksLeft,
     dynamicWeeklyTarget,
     weeklySalesAchieved,
-    weeklyPct
+    weeklyPct,
+    projectedTotalVal,
+    projectedAwaitingVal,
+    projectedScheduledVal,
+    projectedCount
   };
 }
 
 function renderPyramidGoals() {
   const metrics = calculatePyramidGoalMetrics();
 
-  // Card Mensal
+  const cardUnified = document.getElementById('card-pyramid-unified');
   const mProgressEl = document.getElementById('monthly-sales-progress');
   const mPctEl = document.getElementById('monthly-sales-pct');
   const mBarEl = document.getElementById('monthly-sales-bar');
@@ -762,30 +792,54 @@ function renderPyramidGoals() {
   if (mProgressEl) mProgressEl.textContent = `R$ ${metrics.monthlySalesAchieved.toLocaleString('pt-BR')} / R$ ${metrics.monthlyTarget.toLocaleString('pt-BR')}`;
   if (mPctEl) mPctEl.textContent = `${metrics.monthlyPct}%`;
   if (mBarEl) mBarEl.style.width = `${metrics.monthlyPct}%`;
+
+  const isTargetAchieved = metrics.monthlySalesAchieved >= metrics.monthlyTarget;
+
+  if (cardUnified) {
+    if (isTargetAchieved) {
+      cardUnified.classList.add('goal-achieved');
+    } else {
+      cardUnified.classList.remove('goal-achieved');
+    }
+  }
+
+  if (mPctEl) {
+    if (isTargetAchieved) {
+      mPctEl.style.background = 'rgba(16, 185, 129, 0.2)';
+      mPctEl.style.color = '#10b981';
+      mPctEl.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+    } else {
+      mPctEl.style.background = 'rgba(244, 63, 94, 0.15)';
+      mPctEl.style.color = '#f43f5e';
+      mPctEl.style.border = '1px solid rgba(244, 63, 94, 0.3)';
+    }
+  }
+
   if (mSubtextEl) {
-    if (metrics.monthlySalesAchieved >= metrics.monthlyTarget) {
-      mSubtextEl.innerHTML = `<strong style="color: var(--accent-emerald);">🎉 META MENSAL BATIDA COM SUCESSO!</strong>`;
+    if (isTargetAchieved) {
+      mSubtextEl.innerHTML = `<strong style="color: #10b981;">🎉 META MENSAL BATIDA COM SUCESSO!</strong>`;
     } else {
       mSubtextEl.textContent = `Faltam R$ ${metrics.remainingMonthlyTarget.toLocaleString('pt-BR')} para fechar a meta do mês`;
     }
   }
 
-  // Card Semanal Recalculado Dinamicamente
-  const wProgressEl = document.getElementById('weekly-sales-progress');
-  const wPctEl = document.getElementById('weekly-sales-pct');
-  const wBarEl = document.getElementById('weekly-sales-bar');
-  const wSubtextEl = document.getElementById('weekly-sales-subtext');
+  // Meta Semanal Integrada
+  const wProgressInline = document.getElementById('weekly-sales-progress-inline');
+  const wPctInline = document.getElementById('weekly-sales-pct-inline');
 
-  if (wProgressEl) wProgressEl.textContent = `R$ ${metrics.weeklySalesAchieved.toLocaleString('pt-BR')} / R$ ${metrics.dynamicWeeklyTarget.toLocaleString('pt-BR')}`;
-  if (wPctEl) wPctEl.textContent = `${metrics.weeklyPct}%`;
-  if (wBarEl) wBarEl.style.width = `${metrics.weeklyPct}%`;
-  if (wSubtextEl) {
-    if (metrics.monthlySalesAchieved >= metrics.monthlyTarget) {
-      wSubtextEl.textContent = `🔥 Parabéns! A meta mensal já foi superada!`;
-    } else {
-      wSubtextEl.textContent = `⚡ Reajustado dinamicamente: R$ ${metrics.dynamicWeeklyTarget.toLocaleString('pt-BR')}/sem nas últimas ${metrics.weeksLeft} semanas restantes`;
-    }
-  }
+  if (wProgressInline) wProgressInline.textContent = `R$ ${metrics.weeklySalesAchieved.toLocaleString('pt-BR')} / R$ ${metrics.dynamicWeeklyTarget.toLocaleString('pt-BR')}`;
+  if (wPctInline) wPctInline.textContent = `(${metrics.weeklyPct}%)`;
+
+  // Painel da Direita: Total Vendas Projetadas
+  const projValEl = document.getElementById('projected-sales-value');
+  const projCountBadge = document.getElementById('projected-leads-count');
+  const projAwaitingEl = document.getElementById('projected-awaiting-val');
+  const projScheduledEl = document.getElementById('projected-scheduled-val');
+
+  if (projValEl) projValEl.textContent = `R$ ${metrics.projectedTotalVal.toLocaleString('pt-BR')}`;
+  if (projCountBadge) projCountBadge.textContent = `${metrics.projectedCount} lead${metrics.projectedCount !== 1 ? 's' : ''}`;
+  if (projAwaitingEl) projAwaitingEl.textContent = `R$ ${metrics.projectedAwaitingVal.toLocaleString('pt-BR')}`;
+  if (projScheduledEl) projScheduledEl.textContent = `R$ ${metrics.projectedScheduledVal.toLocaleString('pt-BR')}`;
 
   // Sincronizar input no modal de engrenagem
   const configInput = document.getElementById('config-monthly-target-input');
