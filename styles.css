@@ -556,7 +556,7 @@ body.light-theme .active-page-badge {
     gap: 0.75rem;
   }
 
-  .header-brand {
+  .header-brand-wrap {
     order: 1;
   }
 
